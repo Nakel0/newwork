@@ -19,6 +19,7 @@
                 <li><a href="#dashboard" class="nav-link active" data-section="dashboard">Dashboard</a></li>
                 <li><a href="#assessment" class="nav-link" data-section="assessment">Assessment</a></li>
                 <li><a href="#planning" class="nav-link" data-section="planning">Migration Plan</a></li>
+                <li><a href="#checklist" class="nav-link" data-section="checklist">Checklist</a></li>
                 <li><a href="#cost" class="nav-link" data-section="cost">Cost Analysis</a></li>
                 <li><a href="#reports" class="nav-link" data-section="reports">Reports</a></li>
             </ul>
@@ -411,6 +412,58 @@
             </div>
         </section>
 
+        <!-- Migration Checklist Section -->
+        <section id="checklist" class="section">
+            <div class="section-header">
+                <h1><i class="fas fa-tasks"></i> Migration Checklist</h1>
+                <p class="subtitle">Track your migration tasks and progress</p>
+            </div>
+
+            <div class="checklist-container">
+                <div class="checklist-actions">
+                    <button class="btn-primary" onclick="generateChecklist()">
+                        <i class="fas fa-magic"></i> Generate Checklist from Plan
+                    </button>
+                    <button class="btn-secondary" onclick="addCustomTask()">
+                        <i class="fas fa-plus"></i> Add Custom Task
+                    </button>
+                </div>
+
+                <div class="checklist-stats">
+                    <div class="checklist-stat">
+                        <span class="stat-label">Total Tasks</span>
+                        <span class="stat-value" id="totalTasks">0</span>
+                    </div>
+                    <div class="checklist-stat">
+                        <span class="stat-label">Completed</span>
+                        <span class="stat-value" id="completedTasks">0</span>
+                    </div>
+                    <div class="checklist-stat">
+                        <span class="stat-label">Progress</span>
+                        <span class="stat-value" id="checklistProgress">0%</span>
+                    </div>
+                </div>
+
+                <div class="checklist-progress-bar">
+                    <div class="checklist-progress-fill" id="checklistProgressFill" style="width: 0%"></div>
+                </div>
+
+                <div class="checklist-filters">
+                    <button class="filter-btn active" data-filter="all" onclick="filterChecklist('all')">All</button>
+                    <button class="filter-btn" data-filter="pending" onclick="filterChecklist('pending')">Pending</button>
+                    <button class="filter-btn" data-filter="in-progress" onclick="filterChecklist('in-progress')">In Progress</button>
+                    <button class="filter-btn" data-filter="completed" onclick="filterChecklist('completed')">Completed</button>
+                </div>
+
+                <div class="checklist-items" id="checklistItems">
+                    <div class="checklist-empty">
+                        <i class="fas fa-clipboard-list"></i>
+                        <p>No tasks yet. Generate a checklist from your migration plan or add custom tasks.</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
         <!-- Cost Analysis Section -->
         <section id="cost" class="section">
             <div class="section-header">
@@ -630,24 +683,36 @@
                     </div>
                 </div>
 
-                <div class="billing-card">
+                    <div class="billing-card">
                     <h2>Upgrade Plans</h2>
                     <div class="upgrade-grid">
                         <div class="upgrade-card">
-                            <h3>Pro</h3>
-                            <div class="upgrade-price">$99<span>/month</span></div>
+                            <h3>Starter</h3>
+                            <div class="upgrade-price">$29<span>/month</span></div>
                             <ul class="upgrade-features">
-                                <li>Up to 50 servers</li>
+                                <li>Up to 20 servers</li>
+                                <li>3 migration plans</li>
+                                <li>5 reports per month</li>
+                                <li>Migration checklist</li>
+                            </ul>
+                            <button class="btn-upgrade-card" onclick="upgradePlan('starter')">Upgrade to Starter</button>
+                        </div>
+                        <div class="upgrade-card featured">
+                            <div class="popular-badge">Most Popular</div>
+                            <h3>Pro</h3>
+                            <div class="upgrade-price">$49<span>/month</span></div>
+                            <ul class="upgrade-features">
+                                <li>Up to 100 servers</li>
                                 <li>Unlimited plans</li>
                                 <li>Unlimited reports</li>
                                 <li>PDF export</li>
+                                <li>Migration checklist</li>
                             </ul>
                             <button class="btn-upgrade-card" onclick="upgradePlan('pro')">Upgrade to Pro</button>
                         </div>
-                        <div class="upgrade-card featured">
-                            <div class="popular-badge">Best Value</div>
+                        <div class="upgrade-card">
                             <h3>Enterprise</h3>
-                            <div class="upgrade-price">$299<span>/month</span></div>
+                            <div class="upgrade-price">$199<span>/month</span></div>
                             <ul class="upgrade-features">
                                 <li>Unlimited servers</li>
                                 <li>Unlimited plans</li>

@@ -38,6 +38,10 @@ const appState = {
         plans: 0,
         reportsThisMonth: 0,
         lastReportDate: null
+    },
+    checklist: {
+        tasks: [],
+        currentFilter: 'all'
     }
 };
 
@@ -56,11 +60,24 @@ const subscriptionPlans = {
             prioritySupport: false
         }
     },
+    starter: {
+        name: 'Starter',
+        price: 29,
+        limits: {
+            maxServers: 20,
+            maxPlans: 3,
+            maxReportsPerMonth: 5,
+            pdfExport: false,
+            excelExport: false,
+            apiAccess: false,
+            prioritySupport: false
+        }
+    },
     pro: {
         name: 'Pro',
-        price: 99,
+        price: 49,
         limits: {
-            maxServers: 50,
+            maxServers: 100,
             maxPlans: -1, // unlimited
             maxReportsPerMonth: -1, // unlimited
             pdfExport: true,
@@ -71,7 +88,7 @@ const subscriptionPlans = {
     },
     enterprise: {
         name: 'Enterprise',
-        price: 299,
+        price: 199,
         limits: {
             maxServers: -1, // unlimited
             maxPlans: -1, // unlimited
@@ -189,20 +206,31 @@ function showUpgradeModal() {
     const currentPlan = appState.subscription.plan;
     
     let content = '<div class="upgrade-options">';
+    let defaultPlan = 'starter';
     
     if (currentPlan === 'free') {
         content += `
             <div class="upgrade-option">
-                <h3>Pro Plan - $99/month</h3>
+                <h3>Starter Plan - $29/month</h3>
                 <ul>
-                    <li>Up to 50 servers</li>
-                    <li>Unlimited migration plans</li>
-                    <li>Unlimited reports</li>
-                    <li>PDF export</li>
+                    <li>Up to 20 servers</li>
+                    <li>3 migration plans</li>
+                    <li>5 reports per month</li>
+                    <li>Migration checklist</li>
                 </ul>
             </div>
             <div class="upgrade-option">
-                <h3>Enterprise Plan - $299/month</h3>
+                <h3>Pro Plan - $49/month</h3>
+                <ul>
+                    <li>Up to 100 servers</li>
+                    <li>Unlimited migration plans</li>
+                    <li>Unlimited reports</li>
+                    <li>PDF export</li>
+                    <li>Migration checklist</li>
+                </ul>
+            </div>
+            <div class="upgrade-option">
+                <h3>Enterprise Plan - $199/month</h3>
                 <ul>
                     <li>Unlimited everything</li>
                     <li>PDF + Excel export</li>
@@ -211,10 +239,33 @@ function showUpgradeModal() {
                 </ul>
             </div>
         `;
+        defaultPlan = 'starter';
+    } else if (currentPlan === 'starter') {
+        content += `
+            <div class="upgrade-option">
+                <h3>Pro Plan - $49/month</h3>
+                <ul>
+                    <li>Up to 100 servers</li>
+                    <li>Unlimited migration plans</li>
+                    <li>Unlimited reports</li>
+                    <li>PDF export</li>
+                </ul>
+            </div>
+            <div class="upgrade-option">
+                <h3>Enterprise Plan - $199/month</h3>
+                <ul>
+                    <li>Unlimited servers</li>
+                    <li>Excel export</li>
+                    <li>API access</li>
+                    <li>Priority support</li>
+                </ul>
+            </div>
+        `;
+        defaultPlan = 'pro';
     } else if (currentPlan === 'pro') {
         content += `
             <div class="upgrade-option">
-                <h3>Enterprise Plan - $299/month</h3>
+                <h3>Enterprise Plan - $199/month</h3>
                 <ul>
                     <li>Unlimited servers</li>
                     <li>Excel export</li>
@@ -224,11 +275,12 @@ function showUpgradeModal() {
                 </ul>
             </div>
         `;
+        defaultPlan = 'enterprise';
     }
     
     content += '</div>';
     document.getElementById('upgradeModalContent').innerHTML = content;
-    document.getElementById('confirmUpgradeBtn').setAttribute('data-plan', currentPlan === 'free' ? 'pro' : 'enterprise');
+    document.getElementById('confirmUpgradeBtn').setAttribute('data-plan', defaultPlan);
     modal.style.display = 'block';
 }
 
@@ -906,7 +958,8 @@ function saveProgress() {
     const data = {
         assessment: appState.assessment,
         planning: appState.planning,
-        cost: appState.cost
+        cost: appState.cost,
+        checklist: appState.checklist
     };
     localStorage.setItem('cloudMigrationData', JSON.stringify(data));
     localStorage.setItem('usage', JSON.stringify(appState.usage));
@@ -928,6 +981,7 @@ function loadProgress() {
             if (data.assessment) appState.assessment = { ...appState.assessment, ...data.assessment };
             if (data.planning) appState.planning = { ...appState.planning, ...data.planning };
             if (data.cost) appState.cost = { ...appState.cost, ...data.cost };
+            if (data.checklist) appState.checklist = { ...appState.checklist, ...data.checklist };
             populateForms();
             updateAssessment();
             updateMigrationPlan();
@@ -1036,6 +1090,11 @@ window.addEventListener('DOMContentLoaded', () => {
     updateCostChart();
     updateUsageUI();
     
+    // Load and render checklist
+    if (appState.checklist.tasks && appState.checklist.tasks.length > 0) {
+        renderChecklist();
+    }
+    
     // Set default dates
     const today = new Date();
     const nextMonth = new Date(today);
@@ -1063,6 +1122,371 @@ window.addEventListener('DOMContentLoaded', () => {
         });
     }
 });
+
+// Migration Checklist Functions
+function generateChecklist() {
+    const p = appState.planning;
+    const a = appState.assessment;
+    
+    if (!p.migrationStrategy || !p.cloudProvider) {
+        showToast('Please complete your migration plan first', 'error');
+        showSection('planning');
+        return;
+    }
+    
+    const tasks = [];
+    
+    // Phase 1: Assessment & Planning
+    tasks.push({
+        id: Date.now() + 1,
+        title: 'Complete infrastructure assessment',
+        phase: 'Phase 1: Assessment & Planning',
+        status: 'completed',
+        dueDate: null,
+        assignee: '',
+        notes: ''
+    });
+    
+    tasks.push({
+        id: Date.now() + 2,
+        title: 'Document all servers and applications',
+        phase: 'Phase 1: Assessment & Planning',
+        status: 'pending',
+        dueDate: null,
+        assignee: '',
+        notes: ''
+    });
+    
+    tasks.push({
+        id: Date.now() + 3,
+        title: 'Map application dependencies',
+        phase: 'Phase 1: Assessment & Planning',
+        status: 'pending',
+        dueDate: null,
+        assignee: '',
+        notes: ''
+    });
+    
+    // Phase 2: Design & Preparation
+    tasks.push({
+        id: Date.now() + 4,
+        title: `Design ${p.cloudProvider} architecture`,
+        phase: 'Phase 2: Design & Preparation',
+        status: 'pending',
+        dueDate: null,
+        assignee: '',
+        notes: ''
+    });
+    
+    tasks.push({
+        id: Date.now() + 5,
+        title: 'Set up cloud account and billing',
+        phase: 'Phase 2: Design & Preparation',
+        status: 'pending',
+        dueDate: null,
+        assignee: '',
+        notes: ''
+    });
+    
+    tasks.push({
+        id: Date.now() + 6,
+        title: 'Configure network and security groups',
+        phase: 'Phase 2: Design & Preparation',
+        status: 'pending',
+        dueDate: null,
+        assignee: '',
+        notes: ''
+    });
+    
+    if (a.securityRequirements.length > 0) {
+        tasks.push({
+            id: Date.now() + 7,
+            title: `Configure compliance: ${a.securityRequirements.join(', ')}`,
+            phase: 'Phase 2: Design & Preparation',
+            status: 'pending',
+            dueDate: null,
+            assignee: '',
+            notes: ''
+        });
+    }
+    
+    // Phase 3: Pilot Migration
+    tasks.push({
+        id: Date.now() + 8,
+        title: 'Set up test environment in cloud',
+        phase: 'Phase 3: Pilot Migration',
+        status: 'pending',
+        dueDate: null,
+        assignee: '',
+        notes: ''
+    });
+    
+    if (p.migrationStrategy === 'lift-shift') {
+        tasks.push({
+            id: Date.now() + 9,
+            title: 'Replicate VMs to cloud',
+            phase: 'Phase 3: Pilot Migration',
+            status: 'pending',
+            dueDate: null,
+            assignee: '',
+            notes: ''
+        });
+    } else if (p.migrationStrategy === 'refactor') {
+        tasks.push({
+            id: Date.now() + 9,
+            title: 'Refactor applications for cloud',
+            phase: 'Phase 3: Pilot Migration',
+            status: 'pending',
+            dueDate: null,
+            assignee: '',
+            notes: ''
+        });
+    } else if (p.migrationStrategy === 'rearchitect') {
+        tasks.push({
+            id: Date.now() + 9,
+            title: 'Build cloud-native architecture',
+            phase: 'Phase 3: Pilot Migration',
+            status: 'pending',
+            dueDate: null,
+            assignee: '',
+            notes: ''
+        });
+    }
+    
+    tasks.push({
+        id: Date.now() + 10,
+        title: 'Test application functionality',
+        phase: 'Phase 3: Pilot Migration',
+        status: 'pending',
+        dueDate: null,
+        assignee: '',
+        notes: ''
+    });
+    
+    tasks.push({
+        id: Date.now() + 11,
+        title: 'Performance and load testing',
+        phase: 'Phase 3: Pilot Migration',
+        status: 'pending',
+        dueDate: null,
+        assignee: '',
+        notes: ''
+    });
+    
+    // Phase 4: Full Migration
+    tasks.push({
+        id: Date.now() + 12,
+        title: 'Migrate production workloads',
+        phase: 'Phase 4: Full Migration',
+        status: 'pending',
+        dueDate: null,
+        assignee: '',
+        notes: ''
+    });
+    
+    if (a.numDatabases > 0) {
+        tasks.push({
+            id: Date.now() + 13,
+            title: `Migrate ${a.numDatabases} database(s)`,
+            phase: 'Phase 4: Full Migration',
+            status: 'pending',
+            dueDate: null,
+            assignee: '',
+            notes: ''
+        });
+    }
+    
+    tasks.push({
+        id: Date.now() + 14,
+        title: 'Execute cutover plan',
+        phase: 'Phase 4: Full Migration',
+        status: 'pending',
+        dueDate: null,
+        assignee: '',
+        notes: ''
+    });
+    
+    tasks.push({
+        id: Date.now() + 15,
+        title: 'Verify production systems',
+        phase: 'Phase 4: Full Migration',
+        status: 'pending',
+        dueDate: null,
+        assignee: '',
+        notes: ''
+    });
+    
+    // Phase 5: Optimization
+    tasks.push({
+        id: Date.now() + 16,
+        title: 'Optimize cloud resources',
+        phase: 'Phase 5: Optimization',
+        status: 'pending',
+        dueDate: null,
+        assignee: '',
+        notes: ''
+    });
+    
+    tasks.push({
+        id: Date.now() + 17,
+        title: 'Implement cost optimization',
+        phase: 'Phase 5: Optimization',
+        status: 'pending',
+        dueDate: null,
+        assignee: '',
+        notes: ''
+    });
+    
+    tasks.push({
+        id: Date.now() + 18,
+        title: 'Document migration process',
+        phase: 'Phase 5: Optimization',
+        status: 'pending',
+        dueDate: null,
+        assignee: '',
+        notes: ''
+    });
+    
+    appState.checklist.tasks = tasks;
+    saveProgress();
+    renderChecklist();
+    showToast('Migration checklist generated successfully!');
+}
+
+function addCustomTask() {
+    const title = prompt('Enter task title:');
+    if (!title) return;
+    
+    const task = {
+        id: Date.now(),
+        title: title,
+        phase: 'Custom',
+        status: 'pending',
+        dueDate: null,
+        assignee: '',
+        notes: ''
+    };
+    
+    appState.checklist.tasks.push(task);
+    saveProgress();
+    renderChecklist();
+    showToast('Custom task added!');
+}
+
+function toggleTaskStatus(taskId) {
+    const task = appState.checklist.tasks.find(t => t.id === taskId);
+    if (!task) return;
+    
+    if (task.status === 'pending') {
+        task.status = 'in-progress';
+    } else if (task.status === 'in-progress') {
+        task.status = 'completed';
+    } else {
+        task.status = 'pending';
+    }
+    
+    saveProgress();
+    renderChecklist();
+}
+
+function deleteTask(taskId) {
+    if (confirm('Are you sure you want to delete this task?')) {
+        appState.checklist.tasks = appState.checklist.tasks.filter(t => t.id !== taskId);
+        saveProgress();
+        renderChecklist();
+        showToast('Task deleted');
+    }
+}
+
+function filterChecklist(filter) {
+    appState.checklist.currentFilter = filter;
+    
+    // Update filter buttons
+    document.querySelectorAll('.filter-btn').forEach(btn => {
+        btn.classList.remove('active');
+        if (btn.getAttribute('data-filter') === filter) {
+            btn.classList.add('active');
+        }
+    });
+    
+    renderChecklist();
+}
+
+function renderChecklist() {
+    const container = document.getElementById('checklistItems');
+    if (!container) return;
+    
+    let tasks = appState.checklist.tasks;
+    
+    // Apply filter
+    if (appState.checklist.currentFilter !== 'all') {
+        tasks = tasks.filter(t => t.status === appState.checklist.currentFilter);
+    }
+    
+    // Group by phase
+    const grouped = {};
+    tasks.forEach(task => {
+        if (!grouped[task.phase]) {
+            grouped[task.phase] = [];
+        }
+        grouped[task.phase].push(task);
+    });
+    
+    // Update stats
+    const total = appState.checklist.tasks.length;
+    const completed = appState.checklist.tasks.filter(t => t.status === 'completed').length;
+    const progress = total > 0 ? Math.round((completed / total) * 100) : 0;
+    
+    document.getElementById('totalTasks').textContent = total;
+    document.getElementById('completedTasks').textContent = completed;
+    document.getElementById('checklistProgress').textContent = `${progress}%`;
+    document.getElementById('checklistProgressFill').style.width = `${progress}%`;
+    
+    if (tasks.length === 0) {
+        container.innerHTML = `
+            <div class="checklist-empty">
+                <i class="fas fa-clipboard-list"></i>
+                <p>No tasks found. ${appState.checklist.currentFilter === 'all' ? 'Generate a checklist from your migration plan or add custom tasks.' : 'Try a different filter.'}</p>
+            </div>
+        `;
+        return;
+    }
+    
+    let html = '';
+    Object.keys(grouped).forEach(phase => {
+        html += `<div class="checklist-phase">
+            <h3>${phase}</h3>
+            <div class="checklist-phase-tasks">`;
+        
+        grouped[phase].forEach(task => {
+            const statusIcon = task.status === 'completed' ? 'fa-check-circle' : 
+                             task.status === 'in-progress' ? 'fa-spinner' : 'fa-circle';
+            const statusClass = task.status === 'completed' ? 'completed' : 
+                              task.status === 'in-progress' ? 'in-progress' : 'pending';
+            
+            html += `
+                <div class="checklist-item ${statusClass}">
+                    <div class="checklist-item-main">
+                        <button class="checklist-checkbox" onclick="toggleTaskStatus(${task.id})">
+                            <i class="fas ${statusIcon}"></i>
+                        </button>
+                        <div class="checklist-item-content">
+                            <h4>${task.title}</h4>
+                            ${task.notes ? `<p class="checklist-notes">${task.notes}</p>` : ''}
+                        </div>
+                        <button class="checklist-delete" onclick="deleteTask(${task.id})" title="Delete task">
+                            <i class="fas fa-trash"></i>
+                        </button>
+                    </div>
+                </div>
+            `;
+        });
+        
+        html += `</div></div>`;
+    });
+    
+    container.innerHTML = html;
+}
 
 // Auto-save on changes
 setInterval(() => {

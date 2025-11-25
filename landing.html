@@ -129,26 +129,48 @@
                     <button class="btn-pricing" onclick="showSignup('free')">Get Started</button>
                 </div>
 
+                <!-- Starter Plan -->
+                <div class="pricing-card">
+                    <div class="pricing-header">
+                        <h3>Starter</h3>
+                        <div class="pricing-price">
+                            <span class="price">$29</span>
+                            <span class="period">/month</span>
+                        </div>
+                        <p class="pricing-description">For small businesses</p>
+                    </div>
+                    <ul class="pricing-features">
+                        <li><i class="fas fa-check"></i> Up to 20 servers</li>
+                        <li><i class="fas fa-check"></i> Advanced assessment</li>
+                        <li><i class="fas fa-check"></i> 3 migration plans</li>
+                        <li><i class="fas fa-check"></i> Detailed cost analysis</li>
+                        <li><i class="fas fa-check"></i> 5 reports per month</li>
+                        <li><i class="fas fa-check"></i> Migration checklist</li>
+                        <li><i class="fas fa-times"></i> No PDF export</li>
+                    </ul>
+                    <button class="btn-pricing" onclick="showSignup('starter')">Start Free Trial</button>
+                </div>
+
                 <!-- Pro Plan -->
                 <div class="pricing-card featured">
                     <div class="popular-badge">Most Popular</div>
                     <div class="pricing-header">
                         <h3>Pro</h3>
                         <div class="pricing-price">
-                            <span class="price">$99</span>
+                            <span class="price">$49</span>
                             <span class="period">/month</span>
                         </div>
                         <p class="pricing-description">For growing businesses</p>
                     </div>
                     <ul class="pricing-features">
-                        <li><i class="fas fa-check"></i> Up to 50 servers</li>
+                        <li><i class="fas fa-check"></i> Up to 100 servers</li>
                         <li><i class="fas fa-check"></i> Advanced assessment</li>
                         <li><i class="fas fa-check"></i> Unlimited migration plans</li>
                         <li><i class="fas fa-check"></i> Detailed cost analysis</li>
                         <li><i class="fas fa-check"></i> Unlimited reports</li>
                         <li><i class="fas fa-check"></i> PDF export</li>
+                        <li><i class="fas fa-check"></i> Migration checklist</li>
                         <li><i class="fas fa-check"></i> Email support</li>
-                        <li><i class="fas fa-check"></i> Multi-cloud planning</li>
                     </ul>
                     <button class="btn-pricing btn-pricing-featured" onclick="showSignup('pro')">Start Free Trial</button>
                 </div>
@@ -158,7 +180,7 @@
                     <div class="pricing-header">
                         <h3>Enterprise</h3>
                         <div class="pricing-price">
-                            <span class="price">$299</span>
+                            <span class="price">$199</span>
                             <span class="period">/month</span>
                         </div>
                         <p class="pricing-description">For large organizations</p>
@@ -251,8 +273,9 @@
                     <label>Select Plan</label>
                     <select id="selectedPlan" required>
                         <option value="free">Free - $0/month</option>
-                        <option value="pro">Pro - $99/month</option>
-                        <option value="enterprise">Enterprise - $299/month</option>
+                        <option value="starter">Starter - $29/month</option>
+                        <option value="pro">Pro - $49/month</option>
+                        <option value="enterprise">Enterprise - $199/month</option>
                     </select>
                 </div>
                 <button type="submit" class="btn-submit">Create Account</button>
