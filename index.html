@@ -1,0 +1,697 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SME Cloud Migration Planner - SaaS Platform</title>
+    <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body>
+    <!-- Navigation -->
+    <nav class="navbar">
+        <div class="nav-container">
+            <div class="nav-brand">
+                <i class="fas fa-cloud"></i>
+                <span>CloudMigrate Pro</span>
+            </div>
+            <ul class="nav-menu">
+                <li><a href="#dashboard" class="nav-link active" data-section="dashboard">Dashboard</a></li>
+                <li><a href="#assessment" class="nav-link" data-section="assessment">Assessment</a></li>
+                <li><a href="#planning" class="nav-link" data-section="planning">Migration Plan</a></li>
+                <li><a href="#cost" class="nav-link" data-section="cost">Cost Analysis</a></li>
+                <li><a href="#reports" class="nav-link" data-section="reports">Reports</a></li>
+            </ul>
+            <div class="nav-actions">
+                <div class="subscription-badge" id="subscriptionBadge">
+                    <i class="fas fa-crown"></i>
+                    <span id="subscriptionPlan">Free</span>
+                </div>
+                <button class="btn-icon" id="exportBtn" title="Export Report">
+                    <i class="fas fa-download"></i>
+                </button>
+                <button class="btn-icon" id="saveBtn" title="Save Progress">
+                    <i class="fas fa-save"></i>
+                </button>
+                <div class="user-menu">
+                    <button class="btn-icon" id="userMenuBtn" title="Account">
+                        <i class="fas fa-user-circle"></i>
+                    </button>
+                    <div class="user-dropdown" id="userDropdown">
+                        <div class="user-info">
+                            <div class="user-name" id="userName">User</div>
+                            <div class="user-email" id="userEmail">user@example.com</div>
+                        </div>
+                        <div class="dropdown-divider"></div>
+                        <a href="#" class="dropdown-item" onclick="showSection('account')">
+                            <i class="fas fa-user"></i> Account Settings
+                        </a>
+                        <a href="#" class="dropdown-item" onclick="showSection('billing')">
+                            <i class="fas fa-credit-card"></i> Billing & Subscription
+                        </a>
+                        <div class="dropdown-divider"></div>
+                        <a href="#" class="dropdown-item" onclick="handleLogout()">
+                            <i class="fas fa-sign-out-alt"></i> Sign Out
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Container -->
+    <div class="container">
+        <!-- Dashboard Section -->
+        <section id="dashboard" class="section active">
+            <div class="section-header">
+                <h1><i class="fas fa-tachometer-alt"></i> Dashboard</h1>
+                <p class="subtitle">Overview of your cloud migration journey</p>
+            </div>
+
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <div class="stat-icon blue">
+                        <i class="fas fa-server"></i>
+                    </div>
+                    <div class="stat-content">
+                        <h3 id="totalServers">0</h3>
+                        <p>Servers Assessed</p>
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon green">
+                        <i class="fas fa-dollar-sign"></i>
+                    </div>
+                    <div class="stat-content">
+                        <h3 id="estimatedSavings">$0</h3>
+                        <p>Estimated Savings</p>
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon orange">
+                        <i class="fas fa-calendar-alt"></i>
+                    </div>
+                    <div class="stat-content">
+                        <h3 id="migrationTimeline">0</h3>
+                        <p>Weeks Timeline</p>
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon purple">
+                        <i class="fas fa-tasks"></i>
+                    </div>
+                    <div class="stat-content">
+                        <h3 id="completionProgress">0%</h3>
+                        <p>Completion Progress</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="dashboard-grid">
+                <div class="dashboard-card">
+                    <h2><i class="fas fa-chart-line"></i> Migration Progress</h2>
+                    <div class="progress-container">
+                        <div class="progress-bar">
+                            <div class="progress-fill" id="progressFill" style="width: 0%"></div>
+                        </div>
+                        <div class="progress-steps">
+                            <div class="step completed">
+                                <i class="fas fa-check-circle"></i>
+                                <span>Assessment</span>
+                            </div>
+                            <div class="step" id="step-planning">
+                                <i class="fas fa-circle"></i>
+                                <span>Planning</span>
+                            </div>
+                            <div class="step" id="step-execution">
+                                <i class="fas fa-circle"></i>
+                                <span>Execution</span>
+                            </div>
+                            <div class="step" id="step-complete">
+                                <i class="fas fa-circle"></i>
+                                <span>Complete</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="dashboard-card">
+                    <h2><i class="fas fa-cloud"></i> Recommended Cloud Provider</h2>
+                    <div class="provider-recommendation" id="providerRecommendation">
+                        <div class="provider-icon">
+                            <i class="fab fa-aws"></i>
+                        </div>
+                        <div class="provider-info">
+                            <h3 id="recommendedProvider">Complete Assessment</h3>
+                            <p id="providerReason">Complete the assessment to get recommendations</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="quick-actions">
+                <h2>Quick Actions</h2>
+                <div class="action-buttons">
+                    <button class="action-btn" onclick="showSection('assessment')">
+                        <i class="fas fa-clipboard-check"></i>
+                        <span>Start Assessment</span>
+                    </button>
+                    <button class="action-btn" onclick="showSection('planning')">
+                        <i class="fas fa-route"></i>
+                        <span>Create Migration Plan</span>
+                    </button>
+                    <button class="action-btn" onclick="showSection('cost')">
+                        <i class="fas fa-calculator"></i>
+                        <span>Calculate Costs</span>
+                    </button>
+                    <button class="action-btn" onclick="generateReport()">
+                        <i class="fas fa-file-pdf"></i>
+                        <span>Generate Report</span>
+                    </button>
+                </div>
+            </div>
+        </section>
+
+        <!-- Assessment Section -->
+        <section id="assessment" class="section">
+            <div class="section-header">
+                <h1><i class="fas fa-clipboard-check"></i> Infrastructure Assessment</h1>
+                <p class="subtitle">Evaluate your current infrastructure and readiness for cloud migration</p>
+            </div>
+
+            <div class="assessment-form">
+                <div class="form-section">
+                    <h2><i class="fas fa-server"></i> Server Inventory</h2>
+                    <div class="form-group">
+                        <label>Number of Physical Servers</label>
+                        <input type="number" id="physicalServers" min="0" value="0" onchange="updateAssessment()">
+                    </div>
+                    <div class="form-group">
+                        <label>Number of Virtual Machines</label>
+                        <input type="number" id="virtualMachines" min="0" value="0" onchange="updateAssessment()">
+                    </div>
+                    <div class="form-group">
+                        <label>Total Storage (TB)</label>
+                        <input type="number" id="totalStorage" min="0" step="0.1" value="0" onchange="updateAssessment()">
+                    </div>
+                    <div class="form-group">
+                        <label>Average CPU Cores per Server</label>
+                        <input type="number" id="avgCpuCores" min="1" value="4" onchange="updateAssessment()">
+                    </div>
+                    <div class="form-group">
+                        <label>Average RAM per Server (GB)</label>
+                        <input type="number" id="avgRam" min="1" value="16" onchange="updateAssessment()">
+                    </div>
+                </div>
+
+                <div class="form-section">
+                    <h2><i class="fas fa-database"></i> Database & Applications</h2>
+                    <div class="form-group">
+                        <label>Number of Databases</label>
+                        <input type="number" id="numDatabases" min="0" value="0" onchange="updateAssessment()">
+                    </div>
+                    <div class="form-group">
+                        <label>Database Types</label>
+                        <div class="checkbox-group">
+                            <label><input type="checkbox" value="MySQL" onchange="updateAssessment()"> MySQL</label>
+                            <label><input type="checkbox" value="PostgreSQL" onchange="updateAssessment()"> PostgreSQL</label>
+                            <label><input type="checkbox" value="SQL Server" onchange="updateAssessment()"> SQL Server</label>
+                            <label><input type="checkbox" value="Oracle" onchange="updateAssessment()"> Oracle</label>
+                            <label><input type="checkbox" value="MongoDB" onchange="updateAssessment()"> MongoDB</label>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label>Number of Applications</label>
+                        <input type="number" id="numApplications" min="0" value="0" onchange="updateAssessment()">
+                    </div>
+                    <div class="form-group">
+                        <label>Application Types</label>
+                        <div class="checkbox-group">
+                            <label><input type="checkbox" value="Web" onchange="updateAssessment()"> Web Applications</label>
+                            <label><input type="checkbox" value="API" onchange="updateAssessment()"> API Services</label>
+                            <label><input type="checkbox" value="Desktop" onchange="updateAssessment()"> Desktop Apps</label>
+                            <label><input type="checkbox" value="Mobile" onchange="updateAssessment()"> Mobile Backend</label>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="form-section">
+                    <h2><i class="fas fa-network-wired"></i> Network & Security</h2>
+                    <div class="form-group">
+                        <label>Monthly Bandwidth Usage (GB)</label>
+                        <input type="number" id="monthlyBandwidth" min="0" value="0" onchange="updateAssessment()">
+                    </div>
+                    <div class="form-group">
+                        <label>Security Requirements</label>
+                        <div class="checkbox-group">
+                            <label><input type="checkbox" value="HIPAA" onchange="updateAssessment()"> HIPAA Compliance</label>
+                            <label><input type="checkbox" value="PCI" onchange="updateAssessment()"> PCI-DSS</label>
+                            <label><input type="checkbox" value="GDPR" onchange="updateAssessment()"> GDPR</label>
+                            <label><input type="checkbox" value="SOC2" onchange="updateAssessment()"> SOC 2</label>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label>Current Monthly Infrastructure Cost ($)</label>
+                        <input type="number" id="currentCost" min="0" step="0.01" value="0" onchange="updateAssessment()">
+                    </div>
+                </div>
+
+                <div class="form-section">
+                    <h2><i class="fas fa-chart-bar"></i> Assessment Results</h2>
+                    <div class="assessment-results" id="assessmentResults">
+                        <div class="result-item">
+                            <span class="result-label">Migration Complexity:</span>
+                            <span class="result-value" id="migrationComplexity">-</span>
+                        </div>
+                        <div class="result-item">
+                            <span class="result-label">Estimated Effort:</span>
+                            <span class="result-value" id="estimatedEffort">-</span>
+                        </div>
+                        <div class="result-item">
+                            <span class="result-label">Risk Level:</span>
+                            <span class="result-value" id="riskLevel">-</span>
+                        </div>
+                        <div class="result-item">
+                            <span class="result-label">Readiness Score:</span>
+                            <span class="result-value" id="readinessScore">-</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Planning Section -->
+        <section id="planning" class="section">
+            <div class="section-header">
+                <h1><i class="fas fa-route"></i> Migration Planning</h1>
+                <p class="subtitle">Create a comprehensive migration strategy and timeline</p>
+            </div>
+
+            <div class="planning-container">
+                <div class="planning-form">
+                    <div class="form-section">
+                        <h2><i class="fas fa-cloud"></i> Cloud Provider Selection</h2>
+                        <div class="form-group">
+                            <label>Preferred Cloud Provider</label>
+                            <select id="cloudProvider" onchange="updateMigrationPlan()">
+                                <option value="">Select Provider</option>
+                                <option value="AWS">Amazon Web Services (AWS)</option>
+                                <option value="Azure">Microsoft Azure</option>
+                                <option value="GCP">Google Cloud Platform (GCP)</option>
+                                <option value="Multi">Multi-Cloud Strategy</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="form-section">
+                        <h2><i class="fas fa-arrows-alt"></i> Migration Strategy</h2>
+                        <div class="form-group">
+                            <label>Primary Migration Approach</label>
+                            <select id="migrationStrategy" onchange="updateMigrationPlan()">
+                                <option value="">Select Strategy</option>
+                                <option value="lift-shift">Lift and Shift (Rehost)</option>
+                                <option value="refactor">Refactor (Replatform)</option>
+                                <option value="rearchitect">Rearchitect (Rebuild)</option>
+                                <option value="hybrid">Hybrid Approach</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>Migration Priority</label>
+                            <select id="migrationPriority" onchange="updateMigrationPlan()">
+                                <option value="low">Low - Flexible Timeline</option>
+                                <option value="medium">Medium - Standard Timeline</option>
+                                <option value="high">High - Accelerated Timeline</option>
+                                <option value="critical">Critical - ASAP</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="form-section">
+                        <h2><i class="fas fa-calendar-alt"></i> Timeline Planning</h2>
+                        <div class="form-group">
+                            <label>Target Start Date</label>
+                            <input type="date" id="startDate" onchange="updateMigrationPlan()">
+                        </div>
+                        <div class="form-group">
+                            <label>Target Completion Date</label>
+                            <input type="date" id="endDate" onchange="updateMigrationPlan()">
+                        </div>
+                        <div class="form-group">
+                            <label>Team Size</label>
+                            <input type="number" id="teamSize" min="1" value="5" onchange="updateMigrationPlan()">
+                        </div>
+                    </div>
+                </div>
+
+                <div class="planning-timeline">
+                    <h2><i class="fas fa-project-diagram"></i> Migration Phases</h2>
+                    <div class="timeline" id="migrationTimeline">
+                        <div class="timeline-item">
+                            <div class="timeline-marker phase1"></div>
+                            <div class="timeline-content">
+                                <h3>Phase 1: Assessment & Planning</h3>
+                                <p id="phase1Duration">Duration: -</p>
+                                <ul id="phase1Tasks">
+                                    <li>Infrastructure assessment</li>
+                                    <li>Application inventory</li>
+                                    <li>Dependency mapping</li>
+                                </ul>
+                            </div>
+                        </div>
+                        <div class="timeline-item">
+                            <div class="timeline-marker phase2"></div>
+                            <div class="timeline-content">
+                                <h3>Phase 2: Design & Preparation</h3>
+                                <p id="phase2Duration">Duration: -</p>
+                                <ul id="phase2Tasks">
+                                    <li>Cloud architecture design</li>
+                                    <li>Security planning</li>
+                                    <li>Network configuration</li>
+                                </ul>
+                            </div>
+                        </div>
+                        <div class="timeline-item">
+                            <div class="timeline-marker phase3"></div>
+                            <div class="timeline-content">
+                                <h3>Phase 3: Pilot Migration</h3>
+                                <p id="phase3Duration">Duration: -</p>
+                                <ul id="phase3Tasks">
+                                    <li>Migrate test environment</li>
+                                    <li>Validate functionality</li>
+                                    <li>Performance testing</li>
+                                </ul>
+                            </div>
+                        </div>
+                        <div class="timeline-item">
+                            <div class="timeline-marker phase4"></div>
+                            <div class="timeline-content">
+                                <h3>Phase 4: Full Migration</h3>
+                                <p id="phase4Duration">Duration: -</p>
+                                <ul id="phase4Tasks">
+                                    <li>Production migration</li>
+                                    <li>Data migration</li>
+                                    <li>Cutover execution</li>
+                                </ul>
+                            </div>
+                        </div>
+                        <div class="timeline-item">
+                            <div class="timeline-marker phase5"></div>
+                            <div class="timeline-content">
+                                <h3>Phase 5: Optimization</h3>
+                                <p id="phase5Duration">Duration: -</p>
+                                <ul id="phase5Tasks">
+                                    <li>Performance optimization</li>
+                                    <li>Cost optimization</li>
+                                    <li>Documentation</li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Cost Analysis Section -->
+        <section id="cost" class="section">
+            <div class="section-header">
+                <h1><i class="fas fa-calculator"></i> Cost Analysis</h1>
+                <p class="subtitle">Compare current costs with cloud migration costs and savings</p>
+            </div>
+
+            <div class="cost-container">
+                <div class="cost-comparison">
+                    <div class="cost-card current">
+                        <h2><i class="fas fa-building"></i> Current Infrastructure</h2>
+                        <div class="cost-breakdown">
+                            <div class="cost-item">
+                                <span>Hardware Costs</span>
+                                <span id="currentHardware">$0</span>
+                            </div>
+                            <div class="cost-item">
+                                <span>Maintenance</span>
+                                <span id="currentMaintenance">$0</span>
+                            </div>
+                            <div class="cost-item">
+                                <span>Power & Cooling</span>
+                                <span id="currentPower">$0</span>
+                            </div>
+                            <div class="cost-item">
+                                <span>IT Staff</span>
+                                <span id="currentStaff">$0</span>
+                            </div>
+                            <div class="cost-total">
+                                <span>Total Monthly Cost</span>
+                                <span id="currentTotal">$0</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="cost-card cloud">
+                        <h2><i class="fas fa-cloud"></i> Cloud Infrastructure</h2>
+                        <div class="cost-breakdown">
+                            <div class="cost-item">
+                                <span>Compute (EC2/VM)</span>
+                                <span id="cloudCompute">$0</span>
+                            </div>
+                            <div class="cost-item">
+                                <span>Storage</span>
+                                <span id="cloudStorage">$0</span>
+                            </div>
+                            <div class="cost-item">
+                                <span>Network/Bandwidth</span>
+                                <span id="cloudNetwork">$0</span>
+                            </div>
+                            <div class="cost-item">
+                                <span>Database Services</span>
+                                <span id="cloudDatabase">$0</span>
+                            </div>
+                            <div class="cost-total">
+                                <span>Total Monthly Cost</span>
+                                <span id="cloudTotal">$0</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="savings-analysis">
+                    <div class="savings-card">
+                        <h2><i class="fas fa-chart-line"></i> Savings Analysis</h2>
+                        <div class="savings-metrics">
+                            <div class="metric">
+                                <span class="metric-label">Monthly Savings</span>
+                                <span class="metric-value positive" id="monthlySavings">$0</span>
+                            </div>
+                            <div class="metric">
+                                <span class="metric-label">Annual Savings</span>
+                                <span class="metric-value positive" id="annualSavings">$0</span>
+                            </div>
+                            <div class="metric">
+                                <span class="metric-label">3-Year Savings</span>
+                                <span class="metric-value positive" id="threeYearSavings">$0</span>
+                            </div>
+                            <div class="metric">
+                                <span class="metric-label">ROI Timeline</span>
+                                <span class="metric-value" id="roiTimeline">-</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="cost-chart-container">
+                        <h2><i class="fas fa-chart-pie"></i> Cost Breakdown</h2>
+                        <div class="chart-placeholder" id="costChart">
+                            <canvas id="costChartCanvas"></canvas>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="cost-optimization">
+                    <h2><i class="fas fa-lightbulb"></i> Cost Optimization Recommendations</h2>
+                    <div class="recommendations" id="costRecommendations">
+                        <div class="recommendation-item">
+                            <i class="fas fa-check-circle"></i>
+                            <span>Complete assessment to get personalized recommendations</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Reports Section -->
+        <section id="reports" class="section">
+            <div class="section-header">
+                <h1><i class="fas fa-file-alt"></i> Migration Reports</h1>
+                <p class="subtitle">Generate comprehensive migration reports and documentation</p>
+            </div>
+
+            <div class="reports-container">
+                <div class="report-actions">
+                    <button class="report-btn" onclick="generateReport('executive')">
+                        <i class="fas fa-briefcase"></i>
+                        <span>Executive Summary</span>
+                    </button>
+                    <button class="report-btn" onclick="generateReport('technical')">
+                        <i class="fas fa-code"></i>
+                        <span>Technical Report</span>
+                    </button>
+                    <button class="report-btn" onclick="generateReport('cost')">
+                        <i class="fas fa-dollar-sign"></i>
+                        <span>Cost Analysis Report</span>
+                    </button>
+                    <button class="report-btn" onclick="generateReport('full')">
+                        <i class="fas fa-file-pdf"></i>
+                        <span>Full Migration Report</span>
+                    </button>
+                </div>
+
+                <div class="report-preview" id="reportPreview">
+                    <div class="report-content">
+                        <h2>Report Preview</h2>
+                        <p>Select a report type above to generate and preview your migration report.</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Account Settings Section -->
+        <section id="account" class="section">
+            <div class="section-header">
+                <h1><i class="fas fa-user"></i> Account Settings</h1>
+                <p class="subtitle">Manage your account information</p>
+            </div>
+
+            <div class="account-container">
+                <div class="account-card">
+                    <h2>Profile Information</h2>
+                    <form id="profileForm">
+                        <div class="form-group">
+                            <label>Full Name</label>
+                            <input type="text" id="profileName" required>
+                        </div>
+                        <div class="form-group">
+                            <label>Email</label>
+                            <input type="email" id="profileEmail" required>
+                        </div>
+                        <div class="form-group">
+                            <label>Company Name</label>
+                            <input type="text" id="profileCompany" required>
+                        </div>
+                        <button type="submit" class="btn-submit">Save Changes</button>
+                    </form>
+                </div>
+            </div>
+        </section>
+
+        <!-- Billing & Subscription Section -->
+        <section id="billing" class="section">
+            <div class="section-header">
+                <h1><i class="fas fa-credit-card"></i> Billing & Subscription</h1>
+                <p class="subtitle">Manage your subscription and billing</p>
+            </div>
+
+            <div class="billing-container">
+                <div class="billing-card">
+                    <h2>Current Plan</h2>
+                    <div class="current-plan" id="currentPlanCard">
+                        <div class="plan-info">
+                            <h3 id="currentPlanName">Free Plan</h3>
+                            <p id="currentPlanStatus">Active</p>
+                            <p class="plan-price" id="currentPlanPrice">$0/month</p>
+                        </div>
+                        <div class="plan-actions">
+                            <button class="btn-upgrade" onclick="showUpgradeModal()">Upgrade Plan</button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="billing-card">
+                    <h2>Usage Limits</h2>
+                    <div class="usage-stats">
+                        <div class="usage-item">
+                            <span class="usage-label">Servers</span>
+                            <div class="usage-bar">
+                                <div class="usage-fill" id="serverUsage" style="width: 0%"></div>
+                            </div>
+                            <span class="usage-text" id="serverUsageText">0 / 5</span>
+                        </div>
+                        <div class="usage-item">
+                            <span class="usage-label">Migration Plans</span>
+                            <div class="usage-bar">
+                                <div class="usage-fill" id="planUsage" style="width: 0%"></div>
+                            </div>
+                            <span class="usage-text" id="planUsageText">0 / 1</span>
+                        </div>
+                        <div class="usage-item">
+                            <span class="usage-label">Reports This Month</span>
+                            <div class="usage-bar">
+                                <div class="usage-fill" id="reportUsage" style="width: 0%"></div>
+                            </div>
+                            <span class="usage-text" id="reportUsageText">0 / 1</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="billing-card">
+                    <h2>Upgrade Plans</h2>
+                    <div class="upgrade-grid">
+                        <div class="upgrade-card">
+                            <h3>Pro</h3>
+                            <div class="upgrade-price">$99<span>/month</span></div>
+                            <ul class="upgrade-features">
+                                <li>Up to 50 servers</li>
+                                <li>Unlimited plans</li>
+                                <li>Unlimited reports</li>
+                                <li>PDF export</li>
+                            </ul>
+                            <button class="btn-upgrade-card" onclick="upgradePlan('pro')">Upgrade to Pro</button>
+                        </div>
+                        <div class="upgrade-card featured">
+                            <div class="popular-badge">Best Value</div>
+                            <h3>Enterprise</h3>
+                            <div class="upgrade-price">$299<span>/month</span></div>
+                            <ul class="upgrade-features">
+                                <li>Unlimited servers</li>
+                                <li>Unlimited plans</li>
+                                <li>Unlimited reports</li>
+                                <li>PDF + Excel export</li>
+                                <li>API access</li>
+                                <li>Priority support</li>
+                            </ul>
+                            <button class="btn-upgrade-card" onclick="upgradePlan('enterprise')">Upgrade to Enterprise</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </div>
+
+    <!-- Upgrade Modal -->
+    <div id="upgradeModal" class="modal">
+        <div class="modal-content">
+            <span class="close-modal" onclick="closeUpgradeModal()">&times;</span>
+            <h2>Upgrade Your Plan</h2>
+            <div id="upgradeModalContent">
+                <p>Redirecting to checkout...</p>
+            </div>
+            <div class="modal-actions">
+                <button class="btn-cancel" onclick="closeUpgradeModal()">Cancel</button>
+                <button class="btn-confirm" id="confirmUpgradeBtn" onclick="processUpgrade()">Proceed to Checkout</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Feature Lock Overlay -->
+    <div id="featureLock" class="feature-lock">
+        <div class="lock-content">
+            <i class="fas fa-lock"></i>
+            <h3>Feature Locked</h3>
+            <p id="lockMessage">This feature is not available in your current plan.</p>
+            <button class="btn-upgrade" onclick="showUpgradeModal()">Upgrade Now</button>
+        </div>
+    </div>
+
+    <!-- Toast Notifications -->
+    <div id="toastContainer" class="toast-container"></div>
+
+    <script src="script.js"></script>
+</body>
+</html>

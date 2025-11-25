@@ -1,0 +1,369 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CloudMigrate Pro - Cloud Migration Planning SaaS</title>
+    <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="landing.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body class="landing-page">
+    <!-- Landing Navigation -->
+    <nav class="landing-nav">
+        <div class="nav-container">
+            <div class="nav-brand">
+                <i class="fas fa-cloud"></i>
+                <span>CloudMigrate Pro</span>
+            </div>
+            <div class="nav-actions">
+                <a href="#login" class="btn-link">Sign In</a>
+                <a href="#signup" class="btn-primary">Get Started</a>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Hero Section -->
+    <section class="hero">
+        <div class="hero-content">
+            <h1>Plan Your Cloud Migration with Confidence</h1>
+            <p class="hero-subtitle">The complete SaaS platform for SMEs to assess, plan, and execute cloud migrations. Save time, reduce costs, and minimize risks.</p>
+            <div class="hero-cta">
+                <a href="#signup" class="btn-hero">Start Free Trial</a>
+                <a href="#features" class="btn-hero-secondary">Learn More</a>
+            </div>
+            <div class="hero-stats">
+                <div class="stat">
+                    <span class="stat-number">10,000+</span>
+                    <span class="stat-label">Assessments</span>
+                </div>
+                <div class="stat">
+                    <span class="stat-number">$50M+</span>
+                    <span class="stat-label">Costs Saved</span>
+                </div>
+                <div class="stat">
+                    <span class="stat-number">500+</span>
+                    <span class="stat-label">Companies</span>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Features Section -->
+    <section id="features" class="features-section">
+        <div class="container">
+            <h2 class="section-title">Everything You Need for Cloud Migration</h2>
+            <div class="features-grid">
+                <div class="feature-card">
+                    <div class="feature-icon">
+                        <i class="fas fa-clipboard-check"></i>
+                    </div>
+                    <h3>Infrastructure Assessment</h3>
+                    <p>Comprehensive evaluation of your current infrastructure with automated complexity and risk analysis.</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">
+                        <i class="fas fa-route"></i>
+                    </div>
+                    <h3>Migration Planning</h3>
+                    <p>Create detailed migration strategies with phase-by-phase timelines and task breakdowns.</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">
+                        <i class="fas fa-calculator"></i>
+                    </div>
+                    <h3>Cost Analysis</h3>
+                    <p>Compare current costs with cloud alternatives and calculate ROI with detailed savings projections.</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">
+                        <i class="fas fa-file-pdf"></i>
+                    </div>
+                    <h3>Professional Reports</h3>
+                    <p>Generate executive summaries, technical reports, and comprehensive migration documentation.</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">
+                        <i class="fas fa-cloud"></i>
+                    </div>
+                    <h3>Multi-Cloud Support</h3>
+                    <p>Plan migrations for AWS, Azure, GCP, or multi-cloud strategies with provider-specific recommendations.</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">
+                        <i class="fas fa-shield-alt"></i>
+                    </div>
+                    <h3>Compliance Ready</h3>
+                    <p>Built-in support for HIPAA, PCI-DSS, GDPR, and SOC 2 compliance requirements.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Pricing Section -->
+    <section id="pricing" class="pricing-section">
+        <div class="container">
+            <h2 class="section-title">Simple, Transparent Pricing</h2>
+            <p class="section-subtitle">Choose the plan that fits your needs. All plans include a 14-day free trial.</p>
+            
+            <div class="pricing-grid">
+                <!-- Free Plan -->
+                <div class="pricing-card">
+                    <div class="pricing-header">
+                        <h3>Free</h3>
+                        <div class="pricing-price">
+                            <span class="price">$0</span>
+                            <span class="period">/month</span>
+                        </div>
+                        <p class="pricing-description">Perfect for trying out the platform</p>
+                    </div>
+                    <ul class="pricing-features">
+                        <li><i class="fas fa-check"></i> Up to 5 servers</li>
+                        <li><i class="fas fa-check"></i> Basic assessment</li>
+                        <li><i class="fas fa-check"></i> 1 migration plan</li>
+                        <li><i class="fas fa-check"></i> Basic cost analysis</li>
+                        <li><i class="fas fa-check"></i> 1 report per month</li>
+                        <li><i class="fas fa-times"></i> No PDF export</li>
+                        <li><i class="fas fa-times"></i> No priority support</li>
+                    </ul>
+                    <button class="btn-pricing" onclick="showSignup('free')">Get Started</button>
+                </div>
+
+                <!-- Pro Plan -->
+                <div class="pricing-card featured">
+                    <div class="popular-badge">Most Popular</div>
+                    <div class="pricing-header">
+                        <h3>Pro</h3>
+                        <div class="pricing-price">
+                            <span class="price">$99</span>
+                            <span class="period">/month</span>
+                        </div>
+                        <p class="pricing-description">For growing businesses</p>
+                    </div>
+                    <ul class="pricing-features">
+                        <li><i class="fas fa-check"></i> Up to 50 servers</li>
+                        <li><i class="fas fa-check"></i> Advanced assessment</li>
+                        <li><i class="fas fa-check"></i> Unlimited migration plans</li>
+                        <li><i class="fas fa-check"></i> Detailed cost analysis</li>
+                        <li><i class="fas fa-check"></i> Unlimited reports</li>
+                        <li><i class="fas fa-check"></i> PDF export</li>
+                        <li><i class="fas fa-check"></i> Email support</li>
+                        <li><i class="fas fa-check"></i> Multi-cloud planning</li>
+                    </ul>
+                    <button class="btn-pricing btn-pricing-featured" onclick="showSignup('pro')">Start Free Trial</button>
+                </div>
+
+                <!-- Enterprise Plan -->
+                <div class="pricing-card">
+                    <div class="pricing-header">
+                        <h3>Enterprise</h3>
+                        <div class="pricing-price">
+                            <span class="price">$299</span>
+                            <span class="period">/month</span>
+                        </div>
+                        <p class="pricing-description">For large organizations</p>
+                    </div>
+                    <ul class="pricing-features">
+                        <li><i class="fas fa-check"></i> Unlimited servers</li>
+                        <li><i class="fas fa-check"></i> Enterprise assessment</li>
+                        <li><i class="fas fa-check"></i> Unlimited migration plans</li>
+                        <li><i class="fas fa-check"></i> Advanced cost optimization</li>
+                        <li><i class="fas fa-check"></i> Unlimited reports</li>
+                        <li><i class="fas fa-check"></i> PDF export + Excel</li>
+                        <li><i class="fas fa-check"></i> Priority support</li>
+                        <li><i class="fas fa-check"></i> API access</li>
+                        <li><i class="fas fa-check"></i> Custom integrations</li>
+                        <li><i class="fas fa-check"></i> Dedicated account manager</li>
+                    </ul>
+                    <button class="btn-pricing" onclick="showSignup('enterprise')">Contact Sales</button>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- CTA Section -->
+    <section class="cta-section">
+        <div class="container">
+            <h2>Ready to Start Your Cloud Migration?</h2>
+            <p>Join hundreds of companies already using CloudMigrate Pro</p>
+            <a href="#signup" class="btn-hero">Start Your Free Trial</a>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="landing-footer">
+        <div class="container">
+            <div class="footer-content">
+                <div class="footer-section">
+                    <h4>Product</h4>
+                    <ul>
+                        <li><a href="#features">Features</a></li>
+                        <li><a href="#pricing">Pricing</a></li>
+                        <li><a href="#">Documentation</a></li>
+                    </ul>
+                </div>
+                <div class="footer-section">
+                    <h4>Company</h4>
+                    <ul>
+                        <li><a href="#">About</a></li>
+                        <li><a href="#">Blog</a></li>
+                        <li><a href="#">Contact</a></li>
+                    </ul>
+                </div>
+                <div class="footer-section">
+                    <h4>Legal</h4>
+                    <ul>
+                        <li><a href="#">Privacy Policy</a></li>
+                        <li><a href="#">Terms of Service</a></li>
+                        <li><a href="#">Security</a></li>
+                    </ul>
+                </div>
+            </div>
+            <div class="footer-bottom">
+                <p>&copy; 2024 CloudMigrate Pro. All rights reserved.</p>
+            </div>
+        </div>
+    </footer>
+
+    <!-- Sign Up Modal -->
+    <div id="signupModal" class="modal">
+        <div class="modal-content">
+            <span class="close-modal" onclick="closeModal()">&times;</span>
+            <h2>Create Your Account</h2>
+            <form id="signupForm" onsubmit="handleSignup(event)">
+                <div class="form-group">
+                    <label>Full Name</label>
+                    <input type="text" required placeholder="John Doe">
+                </div>
+                <div class="form-group">
+                    <label>Email</label>
+                    <input type="email" required placeholder="john@company.com">
+                </div>
+                <div class="form-group">
+                    <label>Password</label>
+                    <input type="password" required placeholder="••••••••" minlength="8">
+                </div>
+                <div class="form-group">
+                    <label>Company Name</label>
+                    <input type="text" required placeholder="Your Company">
+                </div>
+                <div class="form-group">
+                    <label>Select Plan</label>
+                    <select id="selectedPlan" required>
+                        <option value="free">Free - $0/month</option>
+                        <option value="pro">Pro - $99/month</option>
+                        <option value="enterprise">Enterprise - $299/month</option>
+                    </select>
+                </div>
+                <button type="submit" class="btn-submit">Create Account</button>
+                <p class="form-footer">By signing up, you agree to our <a href="#">Terms of Service</a> and <a href="#">Privacy Policy</a></p>
+            </form>
+        </div>
+    </div>
+
+    <!-- Login Modal -->
+    <div id="loginModal" class="modal">
+        <div class="modal-content">
+            <span class="close-modal" onclick="closeModal()">&times;</span>
+            <h2>Sign In</h2>
+            <form id="loginForm" onsubmit="handleLogin(event)">
+                <div class="form-group">
+                    <label>Email</label>
+                    <input type="email" required placeholder="john@company.com">
+                </div>
+                <div class="form-group">
+                    <label>Password</label>
+                    <input type="password" required placeholder="••••••••">
+                </div>
+                <button type="submit" class="btn-submit">Sign In</button>
+                <p class="form-footer">Don't have an account? <a href="#signup" onclick="showSignup()">Sign up</a></p>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        // Modal functions
+        function showSignup(plan = 'free') {
+            document.getElementById('signupModal').style.display = 'block';
+            if (plan) {
+                document.getElementById('selectedPlan').value = plan;
+            }
+        }
+
+        function closeModal() {
+            document.querySelectorAll('.modal').forEach(modal => {
+                modal.style.display = 'none';
+            });
+        }
+
+        function handleSignup(e) {
+            e.preventDefault();
+            const formData = new FormData(e.target);
+            const userData = {
+                name: e.target.querySelector('input[type="text"]').value,
+                email: e.target.querySelector('input[type="email"]').value,
+                password: e.target.querySelector('input[type="password"]').value,
+                company: e.target.querySelectorAll('input[type="text"]')[1].value,
+                plan: document.getElementById('selectedPlan').value
+            };
+            
+            // Save to localStorage (in production, this would go to backend)
+            localStorage.setItem('user', JSON.stringify(userData));
+            localStorage.setItem('subscription', JSON.stringify({
+                plan: userData.plan,
+                status: 'active',
+                startDate: new Date().toISOString(),
+                trialEnds: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString()
+            }));
+            
+            // Redirect to app
+            window.location.href = 'index.html';
+        }
+
+        function handleLogin(e) {
+            e.preventDefault();
+            const email = e.target.querySelector('input[type="email"]').value;
+            const password = e.target.querySelector('input[type="password"]').value;
+            
+            // In production, this would authenticate with backend
+            const user = JSON.parse(localStorage.getItem('user') || '{}');
+            if (user.email === email) {
+                window.location.href = 'index.html';
+            } else {
+                alert('Invalid credentials. Please sign up first.');
+            }
+        }
+
+        // Close modal on outside click
+        window.onclick = function(event) {
+            const modals = document.querySelectorAll('.modal');
+            modals.forEach(modal => {
+                if (event.target === modal) {
+                    modal.style.display = 'none';
+                }
+            });
+        }
+
+        // Handle anchor links
+        document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+            anchor.addEventListener('click', function (e) {
+                const href = this.getAttribute('href');
+                if (href === '#signup') {
+                    e.preventDefault();
+                    showSignup();
+                } else if (href === '#login') {
+                    e.preventDefault();
+                    document.getElementById('loginModal').style.display = 'block';
+                } else if (href.startsWith('#')) {
+                    e.preventDefault();
+                    const target = document.querySelector(href);
+                    if (target) {
+                        target.scrollIntoView({ behavior: 'smooth' });
+                    }
+                }
+            });
+        });
+    </script>
+</body>
+</html>
+
