@@ -350,6 +350,16 @@ function showSection(sectionId) {
     if (sectionId === 'dashboard') {
         updateDashboard();
     }
+    
+    // Initialize TCO calculator when section is shown
+    if (sectionId === 'tco') {
+        initializeTCO();
+    }
+    
+    // Generate timeline if planning is complete
+    if (sectionId === 'timeline' && appState.planning.migrationStrategy) {
+        generateVisualTimeline();
+    }
 }
 
 // Navigation event listeners
@@ -407,6 +417,11 @@ function updateAssessment() {
     calculateAssessmentResults();
     updateCostAnalysis();
     updateDashboard();
+    
+    // Auto-update TCO if section is visible
+    if (document.getElementById('tco') && document.getElementById('tco').classList.contains('active')) {
+        initializeTCO();
+    }
 }
 
 function calculateAssessmentResults() {
@@ -820,7 +835,7 @@ function generateReport(type = 'full') {
         downloadButton = `<button class="btn-download" onclick="downloadReport('${type}')">
             <i class="fas fa-download"></i> Download PDF
         </button>`;
-    } else {
+            } else {
         downloadButton = `<button class="btn-download disabled" onclick="showUpgradeModal()" title="Upgrade to export PDF">
             <i class="fas fa-lock"></i> PDF Export (Upgrade Required)
         </button>`;
@@ -1486,6 +1501,308 @@ function renderChecklist() {
     });
     
     container.innerHTML = html;
+}
+
+// TCO Calculator Functions
+function calculateTCO() {
+    const period = parseInt(document.getElementById('tcoPeriod').value) || 5;
+    const currentMonthly = parseFloat(document.getElementById('tcoCurrentMonthly').value) || 0;
+    const growthRate = parseFloat(document.getElementById('tcoGrowthRate').value) || 3;
+    const migrationCost = parseFloat(document.getElementById('tcoMigrationCost').value) || 10000;
+    const cloudMonthly = parseFloat(document.getElementById('tcoCloudMonthly').value) || 0;
+    const cloudReduction = parseFloat(document.getElementById('tcoCloudReduction').value) || 5;
+    
+    // Auto-populate from cost analysis if available
+    if (currentMonthly === 0 && appState.cost.currentTotal > 0) {
+        document.getElementById('tcoCurrentMonthly').value = appState.cost.currentTotal;
+        document.getElementById('tcoCloudMonthly').value = appState.cost.cloudTotal;
+        return calculateTCO(); // Recalculate with new values
+    }
+    
+    let currentTotal = 0;
+    let cloudTotal = migrationCost; // Include one-time migration cost
+    const breakdown = [];
+    
+    for (let year = 1; year <= period; year++) {
+        // Current infrastructure cost (with growth)
+        const currentYearly = currentMonthly * 12 * Math.pow(1 + growthRate / 100, year - 1);
+        currentTotal += currentYearly;
+        
+        // Cloud cost (with optimization reduction)
+        const cloudYearly = cloudMonthly * 12 * Math.pow(1 - cloudReduction / 100, year - 1);
+        cloudTotal += cloudYearly;
+        
+        const savings = currentYearly - cloudYearly;
+        const cumulativeSavings = currentTotal - cloudTotal;
+        
+        breakdown.push({
+            year,
+            currentCost: currentYearly,
+            cloudCost: cloudYearly,
+            savings,
+            cumulativeSavings
+        });
+    }
+    
+    const totalSavings = currentTotal - cloudTotal;
+    const roi = migrationCost > 0 ? ((totalSavings / migrationCost) * 100).toFixed(1) : 0;
+    const paybackMonths = cloudMonthly > 0 && (currentMonthly - cloudMonthly) > 0 
+        ? Math.ceil(migrationCost / ((currentMonthly - cloudMonthly) * 12)) 
+        : null;
+    
+    // Update UI
+    document.getElementById('tcoCurrentTotal').textContent = `$${currentTotal.toLocaleString()}`;
+    document.getElementById('tcoCloudTotal').textContent = `$${cloudTotal.toLocaleString()}`;
+    document.getElementById('tcoTotalSavings').textContent = `$${totalSavings.toLocaleString()}`;
+    document.getElementById('tcoROI').textContent = `${roi}%`;
+    document.getElementById('tcoPayback').textContent = paybackMonths 
+        ? `${paybackMonths} months` 
+        : 'N/A';
+    
+    // Update breakdown table
+    const tbody = document.getElementById('tcoBreakdownBody');
+    tbody.innerHTML = breakdown.map(row => `
+        <tr>
+            <td>Year ${row.year}</td>
+            <td>$${row.currentCost.toLocaleString()}</td>
+            <td>$${row.cloudCost.toLocaleString()}</td>
+            <td class="${row.savings >= 0 ? 'positive' : 'negative'}">$${row.savings.toLocaleString()}</td>
+            <td class="${row.cumulativeSavings >= 0 ? 'positive' : 'negative'}">$${row.cumulativeSavings.toLocaleString()}</td>
+        </tr>
+    `).join('');
+}
+
+function exportTCOReport() {
+    const plan = getCurrentPlan();
+    if (!plan.limits.pdfExport) {
+        showUpgradeModal();
+        return;
+    }
+    
+    // Generate PDF using jsPDF
+    if (typeof window.jspdf !== 'undefined') {
+        const { jsPDF } = window.jspdf;
+        const doc = new jsPDF();
+        
+        doc.setFontSize(20);
+        doc.text('TCO Analysis Report', 20, 20);
+        
+        doc.setFontSize(12);
+        doc.text(`Period: ${document.getElementById('tcoPeriod').value} Years`, 20, 40);
+        doc.text(`Total Current Cost: ${document.getElementById('tcoCurrentTotal').textContent}`, 20, 50);
+        doc.text(`Total Cloud Cost: ${document.getElementById('tcoCloudTotal').textContent}`, 20, 60);
+        doc.text(`Total Savings: ${document.getElementById('tcoTotalSavings').textContent}`, 20, 70);
+        doc.text(`ROI: ${document.getElementById('tcoROI').textContent}`, 20, 80);
+        
+        doc.save('tco-analysis-report.pdf');
+        showToast('TCO report downloaded successfully!');
+    } else {
+        showToast('PDF library not loaded. Please refresh the page.');
+    }
+}
+
+function shareTCO() {
+    const data = {
+        period: document.getElementById('tcoPeriod').value,
+        currentTotal: document.getElementById('tcoCurrentTotal').textContent,
+        cloudTotal: document.getElementById('tcoCloudTotal').textContent,
+        savings: document.getElementById('tcoTotalSavings').textContent
+    };
+    
+    const shareText = `Cloud Migration TCO Analysis:\nPeriod: ${data.period} Years\nCurrent Cost: ${data.currentTotal}\nCloud Cost: ${data.cloudTotal}\nTotal Savings: ${data.savings}`;
+    
+    if (navigator.share) {
+        navigator.share({
+            title: 'Cloud Migration TCO Analysis',
+            text: shareText
+        });
+    } else {
+        // Fallback: copy to clipboard
+        navigator.clipboard.writeText(shareText);
+        showToast('TCO data copied to clipboard!');
+    }
+}
+
+// Migration Timeline Generator Functions
+function generateVisualTimeline() {
+    const p = appState.planning;
+    
+    if (!p.migrationStrategy || !p.cloudProvider) {
+        showToast('Please complete your migration plan first', 'error');
+        showSection('planning');
+        return;
+    }
+    
+    const totalServers = appState.assessment.physicalServers + appState.assessment.virtualMachines;
+    const baseWeeks = Math.ceil((totalServers * 0.5) + (appState.assessment.numDatabases * 1));
+    const totalWeeks = Math.ceil(baseWeeks * (p.migrationPriority === 'high' ? 0.75 : p.migrationPriority === 'critical' ? 0.5 : 1));
+    const weeksPerPhase = Math.ceil(totalWeeks / 5);
+    
+    const phases = [
+        { name: 'Assessment & Planning', weeks: weeksPerPhase, color: '#667eea' },
+        { name: 'Design & Preparation', weeks: weeksPerPhase, color: '#4299e1' },
+        { name: 'Pilot Migration', weeks: weeksPerPhase, color: '#ed8936' },
+        { name: 'Full Migration', weeks: weeksPerPhase * 2, color: '#48bb78' },
+        { name: 'Optimization', weeks: weeksPerPhase, color: '#764ba2' }
+    ];
+    
+    const container = document.getElementById('visualTimeline');
+    let currentWeek = 0;
+    
+    let html = '<div class="visual-timeline">';
+    
+    phases.forEach((phase, index) => {
+        const startDate = p.startDate ? new Date(p.startDate) : new Date();
+        startDate.setDate(startDate.getDate() + (currentWeek * 7));
+        const endDate = new Date(startDate);
+        endDate.setDate(endDate.getDate() + (phase.weeks * 7));
+        
+        html += `
+            <div class="timeline-phase-visual" style="--phase-color: ${phase.color}; --phase-width: ${(phase.weeks / totalWeeks) * 100}%">
+                <div class="timeline-phase-bar">
+                    <div class="timeline-phase-label">
+                        <h4>${phase.name}</h4>
+                        <span>${phase.weeks} weeks</span>
+                    </div>
+                </div>
+                <div class="timeline-phase-dates">
+                    <span>${startDate.toLocaleDateString()}</span>
+                    <span>→</span>
+                    <span>${endDate.toLocaleDateString()}</span>
+                </div>
+            </div>
+        `;
+        
+        currentWeek += phase.weeks;
+    });
+    
+    html += '</div>';
+    html += `<div class="timeline-summary">
+        <p><strong>Total Duration:</strong> ${totalWeeks} weeks (${Math.round(totalWeeks / 4.33)} months)</p>
+        <p><strong>Provider:</strong> ${p.cloudProvider}</p>
+        <p><strong>Strategy:</strong> ${p.migrationStrategy}</p>
+    </div>`;
+    
+    container.innerHTML = html;
+    showToast('Visual timeline generated!');
+}
+
+function exportTimelineImage() {
+    const container = document.getElementById('visualTimeline');
+    if (!container || container.querySelector('.timeline-empty')) {
+        showToast('Please generate a timeline first');
+        return;
+    }
+    
+    if (typeof html2canvas !== 'undefined') {
+        html2canvas(container).then(canvas => {
+            const link = document.createElement('a');
+            link.download = 'migration-timeline.png';
+            link.href = canvas.toDataURL();
+            link.click();
+            showToast('Timeline exported as image!');
+        });
+    } else {
+        showToast('Export library not loaded. Please refresh the page.');
+    }
+}
+
+function shareTimeline() {
+    const container = document.getElementById('visualTimeline');
+    if (!container || container.querySelector('.timeline-empty')) {
+        showToast('Please generate a timeline first');
+        return;
+    }
+    
+    if (navigator.share) {
+        navigator.share({
+            title: 'Cloud Migration Timeline',
+            text: 'Check out my cloud migration timeline!'
+        });
+    } else {
+        showToast('Sharing not available. Use export instead.');
+    }
+}
+
+// PDF Report Download Functions
+function downloadPDFReport(type) {
+    const plan = getCurrentPlan();
+    if (!plan.limits.pdfExport) {
+        showUpgradeModal();
+        return;
+    }
+    
+    if (typeof window.jspdf === 'undefined') {
+        showToast('PDF library not loaded. Please refresh the page.');
+        return;
+    }
+    
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF();
+    
+    // Generate report content
+    const reportContent = generateReportContent(type);
+    
+    // Simple PDF generation (in production, use more sophisticated formatting)
+    doc.setFontSize(20);
+    doc.text(getReportTitle(type), 20, 20);
+    
+    doc.setFontSize(12);
+    const lines = reportContent.replace(/<[^>]*>/g, '').split('\n');
+    let y = 40;
+    
+    lines.forEach(line => {
+        if (line.trim()) {
+            doc.text(line.substring(0, 80), 20, y);
+            y += 7;
+            if (y > 280) {
+                doc.addPage();
+                y = 20;
+            }
+        }
+    });
+    
+    doc.save(`migration-report-${type}.pdf`);
+    showToast('PDF report downloaded successfully!');
+}
+
+// Email Course Signup (Landing Page)
+function handleEmailCourseSignup(e) {
+    e.preventDefault();
+    const formData = new FormData(e.target);
+    const email = e.target.querySelector('input[type="email"]').value;
+    const name = e.target.querySelector('input[type="text"]').value || 'Subscriber';
+    
+    // In production, this would send to your email service (Mailchimp, ConvertKit, etc.)
+    // For now, save to localStorage
+    const subscribers = JSON.parse(localStorage.getItem('emailCourseSubscribers') || '[]');
+    subscribers.push({
+        email,
+        name,
+        signupDate: new Date().toISOString()
+    });
+    localStorage.setItem('emailCourseSubscribers', JSON.stringify(subscribers));
+    
+    // Show success message
+    e.target.innerHTML = `
+        <div style="text-align: center; padding: 2rem;">
+            <i class="fas fa-check-circle" style="font-size: 3rem; color: #48bb78; margin-bottom: 1rem;"></i>
+            <h3>Success! Check your email</h3>
+            <p>We've sent you the first lesson. Check your inbox!</p>
+        </div>
+    `;
+    
+    // In production, trigger email via API
+    // fetch('/api/email-course/signup', { method: 'POST', body: JSON.stringify({ email, name }) });
+}
+
+// Initialize TCO calculator with current values
+function initializeTCO() {
+    if (appState.cost.currentTotal > 0) {
+        document.getElementById('tcoCurrentMonthly').value = appState.cost.currentTotal;
+        document.getElementById('tcoCloudMonthly').value = appState.cost.cloudTotal;
+        calculateTCO();
+    }
 }
 
 // Auto-save on changes

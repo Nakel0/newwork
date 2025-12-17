@@ -6,6 +6,8 @@
     <title>SME Cloud Migration Planner - SaaS Platform</title>
     <link rel="stylesheet" href="styles.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 </head>
 <body>
     <!-- Navigation -->
@@ -21,6 +23,8 @@
                 <li><a href="#planning" class="nav-link" data-section="planning">Migration Plan</a></li>
                 <li><a href="#checklist" class="nav-link" data-section="checklist">Checklist</a></li>
                 <li><a href="#cost" class="nav-link" data-section="cost">Cost Analysis</a></li>
+                <li><a href="#tco" class="nav-link" data-section="tco">TCO Calculator</a></li>
+                <li><a href="#timeline" class="nav-link" data-section="timeline">Timeline</a></li>
                 <li><a href="#reports" class="nav-link" data-section="reports">Reports</a></li>
             </ul>
             <div class="nav-actions">
@@ -569,6 +573,165 @@
             </div>
         </section>
 
+        <!-- TCO Calculator Section -->
+        <section id="tco" class="section">
+            <div class="section-header">
+                <h1><i class="fas fa-calculator"></i> TCO Calculator</h1>
+                <p class="subtitle">Comprehensive Total Cost of Ownership analysis over 3-5 years</p>
+            </div>
+
+            <div class="tco-container">
+                <div class="tco-inputs">
+                    <div class="tco-card">
+                        <h2><i class="fas fa-sliders-h"></i> Analysis Period</h2>
+                        <div class="form-group">
+                            <label>Time Horizon</label>
+                            <select id="tcoPeriod" onchange="calculateTCO()">
+                                <option value="3">3 Years</option>
+                                <option value="5" selected>5 Years</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="tco-card">
+                        <h2><i class="fas fa-dollar-sign"></i> Current Infrastructure Costs</h2>
+                        <div class="form-group">
+                            <label>Monthly Infrastructure Cost</label>
+                            <input type="number" id="tcoCurrentMonthly" value="0" min="0" step="100" onchange="calculateTCO()">
+                        </div>
+                        <div class="form-group">
+                            <label>Annual Growth Rate (%)</label>
+                            <input type="number" id="tcoGrowthRate" value="3" min="0" max="20" step="0.5" onchange="calculateTCO()">
+                        </div>
+                        <div class="form-group">
+                            <label>One-time Migration Cost</label>
+                            <input type="number" id="tcoMigrationCost" value="10000" min="0" step="1000" onchange="calculateTCO()">
+                        </div>
+                    </div>
+
+                    <div class="tco-card">
+                        <h2><i class="fas fa-cloud"></i> Cloud Infrastructure Costs</h2>
+                        <div class="form-group">
+                            <label>Monthly Cloud Cost</label>
+                            <input type="number" id="tcoCloudMonthly" value="0" min="0" step="100" onchange="calculateTCO()">
+                        </div>
+                        <div class="form-group">
+                            <label>Cloud Cost Reduction per Year (%)</label>
+                            <input type="number" id="tcoCloudReduction" value="5" min="0" max="30" step="0.5" onchange="calculateTCO()">
+                            <small>Due to optimization and reserved instances</small>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="tco-results">
+                    <div class="tco-summary-card">
+                        <h2><i class="fas fa-chart-pie"></i> TCO Summary</h2>
+                        <div class="tco-summary-grid">
+                            <div class="tco-summary-item">
+                                <span class="tco-label">Current Infrastructure (Total)</span>
+                                <span class="tco-value" id="tcoCurrentTotal">$0</span>
+                            </div>
+                            <div class="tco-summary-item">
+                                <span class="tco-label">Cloud Infrastructure (Total)</span>
+                                <span class="tco-value" id="tcoCloudTotal">$0</span>
+                            </div>
+                            <div class="tco-summary-item highlight">
+                                <span class="tco-label">Total Savings</span>
+                                <span class="tco-value positive" id="tcoTotalSavings">$0</span>
+                            </div>
+                            <div class="tco-summary-item">
+                                <span class="tco-label">ROI</span>
+                                <span class="tco-value" id="tcoROI">0%</span>
+                            </div>
+                            <div class="tco-summary-item">
+                                <span class="tco-label">Payback Period</span>
+                                <span class="tco-value" id="tcoPayback">-</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="tco-breakdown-card">
+                        <h2><i class="fas fa-table"></i> Year-by-Year Breakdown</h2>
+                        <div class="tco-table-container">
+                            <table class="tco-table" id="tcoBreakdownTable">
+                                <thead>
+                                    <tr>
+                                        <th>Year</th>
+                                        <th>Current Cost</th>
+                                        <th>Cloud Cost</th>
+                                        <th>Savings</th>
+                                        <th>Cumulative Savings</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="tcoBreakdownBody">
+                                </tbody>
+                            </table>
+                        </div>
+                        <div class="tco-actions">
+                            <button class="btn-primary" onclick="exportTCOReport()">
+                                <i class="fas fa-download"></i> Export TCO Report
+                            </button>
+                            <button class="btn-secondary" onclick="shareTCO()">
+                                <i class="fas fa-share"></i> Share Report
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Migration Timeline Generator Section -->
+        <section id="timeline" class="section">
+            <div class="section-header">
+                <h1><i class="fas fa-project-diagram"></i> Migration Timeline Generator</h1>
+                <p class="subtitle">Visual, shareable timeline for your migration project</p>
+            </div>
+
+            <div class="timeline-generator-container">
+                <div class="timeline-controls">
+                    <button class="btn-primary" onclick="generateVisualTimeline()">
+                        <i class="fas fa-magic"></i> Generate Timeline from Plan
+                    </button>
+                    <button class="btn-secondary" onclick="exportTimelineImage()">
+                        <i class="fas fa-download"></i> Export as Image
+                    </button>
+                    <button class="btn-secondary" onclick="shareTimeline()">
+                        <i class="fas fa-share"></i> Share Timeline
+                    </button>
+                </div>
+
+                <div class="visual-timeline-container" id="visualTimeline">
+                    <div class="timeline-empty">
+                        <i class="fas fa-calendar-alt"></i>
+                        <p>Generate a timeline from your migration plan to see a visual representation</p>
+                    </div>
+                </div>
+
+                <div class="timeline-legend">
+                    <div class="legend-item">
+                        <span class="legend-color phase1"></span>
+                        <span>Assessment & Planning</span>
+                    </div>
+                    <div class="legend-item">
+                        <span class="legend-color phase2"></span>
+                        <span>Design & Preparation</span>
+                    </div>
+                    <div class="legend-item">
+                        <span class="legend-color phase3"></span>
+                        <span>Pilot Migration</span>
+                    </div>
+                    <div class="legend-item">
+                        <span class="legend-color phase4"></span>
+                        <span>Full Migration</span>
+                    </div>
+                    <div class="legend-item">
+                        <span class="legend-color phase5"></span>
+                        <span>Optimization</span>
+                    </div>
+                </div>
+            </div>
+        </section>
+
         <!-- Reports Section -->
         <section id="reports" class="section">
             <div class="section-header">
@@ -593,6 +756,10 @@
                     <button class="report-btn" onclick="generateReport('full')">
                         <i class="fas fa-file-pdf"></i>
                         <span>Full Migration Report</span>
+                    </button>
+                    <button class="report-btn" onclick="downloadPDFReport('full')">
+                        <i class="fas fa-file-pdf"></i>
+                        <span>Download PDF</span>
                     </button>
                 </div>
 
