@@ -64,6 +64,51 @@ async function api(path, options = {}) {
     return json;
 }
 
+function parseHashRoute() {
+    // Supports "#billing?success=1" style hashes.
+    const raw = window.location.hash || '';
+    const h = raw.startsWith('#') ? raw.slice(1) : raw;
+    const [route, queryString] = h.split('?');
+    const params = new URLSearchParams(queryString || '');
+    return { route: route || '', params };
+}
+
+function applyMeToAppState(me, { loadAppState = false } = {}) {
+    appState.user = {
+        ...me.user,
+        // keep legacy field name used by UI
+        company: me.user.companyName
+    };
+    appState.subscription = {
+        plan: me.subscription?.plan || 'free',
+        status: me.subscription?.status || 'active',
+        trialEnds: me.subscription?.trialEndsAt || null
+    };
+    appState.usage = {
+        ...appState.usage,
+        servers: me.usage?.servers || 0,
+        plans: me.usage?.plans || 0,
+        reportsThisMonth: me.usage?.reportsThisMonth || 0,
+        lastReportDate: me.usage?.lastReportAt || null
+    };
+
+    if (loadAppState && me.appState && typeof me.appState === 'object') {
+        if (me.appState.assessment) appState.assessment = { ...appState.assessment, ...me.appState.assessment };
+        if (me.appState.planning) appState.planning = { ...appState.planning, ...me.appState.planning };
+        if (me.appState.cost) appState.cost = { ...appState.cost, ...me.appState.cost };
+        if (me.appState.checklist) appState.checklist = { ...appState.checklist, ...me.appState.checklist };
+    }
+}
+
+async function refreshMe({ loadAppState = false } = {}) {
+    const me = await api('/api/me');
+    applyMeToAppState(me, { loadAppState });
+    updateSubscriptionUI();
+    updateDashboard();
+    updateUsageUI();
+    return me;
+}
+
 // Subscription Plans Configuration
 const subscriptionPlans = {
     free: {
@@ -124,31 +169,7 @@ const subscriptionPlans = {
 async function checkAuth() {
     try {
         const me = await api('/api/me');
-        appState.user = {
-            ...me.user,
-            // keep legacy field name used by UI
-            company: me.user.companyName
-        };
-        appState.subscription = {
-            plan: me.subscription?.plan || 'free',
-            status: me.subscription?.status || 'active',
-            trialEnds: me.subscription?.trialEndsAt || null
-        };
-        appState.usage = {
-            ...appState.usage,
-            servers: me.usage?.servers || 0,
-            plans: me.usage?.plans || 0,
-            reportsThisMonth: me.usage?.reportsThisMonth || 0,
-            lastReportDate: me.usage?.lastReportAt || null
-        };
-
-        // Load saved app state from DB
-        if (me.appState && typeof me.appState === 'object') {
-            if (me.appState.assessment) appState.assessment = { ...appState.assessment, ...me.appState.assessment };
-            if (me.appState.planning) appState.planning = { ...appState.planning, ...me.appState.planning };
-            if (me.appState.cost) appState.cost = { ...appState.cost, ...me.appState.cost };
-            if (me.appState.checklist) appState.checklist = { ...appState.checklist, ...me.appState.checklist };
-        }
+        applyMeToAppState(me, { loadAppState: true });
 
         return true;
     } catch {
@@ -200,6 +221,12 @@ function updateSubscriptionUI() {
     document.getElementById('subscriptionPlan').textContent = plan.name;
     document.getElementById('currentPlanName').textContent = `${plan.name} Plan`;
     document.getElementById('currentPlanPrice').textContent = `$${plan.price}/month`;
+
+    if (document.getElementById('currentPlanStatus')) {
+        const statusRaw = (appState.subscription?.status || 'active');
+        const status = statusRaw.replaceAll('_', ' ');
+        document.getElementById('currentPlanStatus').textContent = status.charAt(0).toUpperCase() + status.slice(1);
+    }
     
     // Update usage displays
     updateUsageUI();
@@ -241,6 +268,56 @@ async function upgradePlan(planName) {
         window.location.href = url;
     } catch {
         showToast('Unable to start checkout. Please try again.', 'error');
+    }
+}
+
+async function openBillingPortal() {
+    try {
+        const { url } = await api('/api/billing/portal', { method: 'POST' });
+        window.location.href = url;
+    } catch (e) {
+        if (e.message === 'no_stripe_customer') {
+            showToast('No billing profile yet. Upgrade to create one.', 'error');
+            return;
+        }
+        showToast('Unable to open billing portal.', 'error');
+    }
+}
+
+async function handlePostCheckoutReturn() {
+    const { route, params } = parseHashRoute();
+    if (route !== 'billing') return;
+
+    if (params.get('canceled') === '1') {
+        showSection('billing');
+        showToast('Checkout canceled.', 'error');
+        return;
+    }
+
+    if (params.get('success') !== '1') return;
+
+    showSection('billing');
+    showToast('Payment received — syncing your subscription…');
+
+    const startedAt = Date.now();
+    const maxMs = 30000;
+    const initialPlan = appState.subscription?.plan || 'free';
+
+    // Poll until webhook updates DB
+    while (Date.now() - startedAt < maxMs) {
+        try {
+            await refreshMe({ loadAppState: false });
+            const currentPlan = appState.subscription?.plan || 'free';
+            if (currentPlan !== initialPlan) break;
+        } catch {
+            // ignore transient errors during deploy/restart
+        }
+        await new Promise((r) => setTimeout(r, 1000));
+    }
+
+    // Clean up hash query so refresh doesn't re-run forever
+    if (window.location.hash.includes('?')) {
+        window.location.hash = '#billing';
     }
 }
 
@@ -391,6 +468,11 @@ function showSection(sectionId) {
     // Initialize TCO calculator when section is shown
     if (sectionId === 'tco') {
         initializeTCO();
+    }
+
+    // Refresh billing/subscription when billing section is shown (helps after portal changes)
+    if (sectionId === 'billing') {
+        refreshMe({ loadAppState: false }).catch(() => {});
     }
     
     // Generate timeline if planning is complete
@@ -1136,6 +1218,9 @@ window.addEventListener('DOMContentLoaded', async () => {
     updateDashboard();
     updateCostChart();
     updateUsageUI();
+
+    // If user returned from Stripe checkout, sync subscription immediately
+    handlePostCheckoutReturn().catch(() => {});
     
     // Load and render checklist
     if (appState.checklist.tasks && appState.checklist.tasks.length > 0) {
