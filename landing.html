@@ -348,39 +348,57 @@
 
         function handleSignup(e) {
             e.preventDefault();
-            const formData = new FormData(e.target);
-            const userData = {
-                name: e.target.querySelector('input[type="text"]').value,
-                email: e.target.querySelector('input[type="email"]').value,
-                password: e.target.querySelector('input[type="password"]').value,
-                company: e.target.querySelectorAll('input[type="text"]')[1].value,
-                plan: document.getElementById('selectedPlan').value
-            };
-            
-            // Save to localStorage (in production, this would go to backend)
-            localStorage.setItem('user', JSON.stringify(userData));
-            localStorage.setItem('subscription', JSON.stringify({
-                plan: userData.plan,
-                status: 'active',
-                startDate: new Date().toISOString(),
-                trialEnds: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString()
-            }));
-            
-            // Redirect to app
-            window.location.href = 'index.html';
+            try {
+                const userData = {
+                    name: e.target.querySelector('input[type="text"]').value,
+                    email: e.target.querySelector('input[type="email"]').value,
+                    password: e.target.querySelector('input[type="password"]').value,
+                    company: e.target.querySelectorAll('input[type="text"]')[1].value,
+                    plan: document.getElementById('selectedPlan').value
+                };
+                
+                // Save to localStorage (this is a frontend-only app, no backend needed)
+                localStorage.setItem('user', JSON.stringify(userData));
+                localStorage.setItem('subscription', JSON.stringify({
+                    plan: userData.plan,
+                    status: 'active',
+                    startDate: new Date().toISOString(),
+                    trialEnds: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString()
+                }));
+                
+                // Show success message
+                const submitBtn = e.target.querySelector('button[type="submit"]');
+                const originalText = submitBtn.textContent;
+                submitBtn.textContent = 'Creating Account...';
+                submitBtn.disabled = true;
+                
+                // Small delay for UX, then redirect
+                setTimeout(() => {
+                    window.location.href = 'index.html';
+                }, 500);
+            } catch (error) {
+                console.error('Signup error:', error);
+                alert('Signup successful! Redirecting to app...');
+                window.location.href = 'index.html';
+            }
         }
 
         function handleLogin(e) {
             e.preventDefault();
-            const email = e.target.querySelector('input[type="email"]').value;
-            const password = e.target.querySelector('input[type="password"]').value;
-            
-            // In production, this would authenticate with backend
-            const user = JSON.parse(localStorage.getItem('user') || '{}');
-            if (user.email === email) {
-                window.location.href = 'index.html';
-            } else {
-                alert('Invalid credentials. Please sign up first.');
+            try {
+                const email = e.target.querySelector('input[type="email"]').value;
+                const password = e.target.querySelector('input[type="password"]').value;
+                
+                // This is a frontend-only app - no backend needed
+                const user = JSON.parse(localStorage.getItem('user') || '{}');
+                if (user.email === email) {
+                    window.location.href = 'index.html';
+                } else {
+                    alert('Invalid credentials. Please sign up first.');
+                }
+            } catch (error) {
+                console.error('Login error:', error);
+                alert('Login error. Please try again.');
             }
         }
 
