@@ -1141,7 +1141,35 @@ function saveProgress(options = {}) {
 }
 
 function loadProgress() {
-    // Data is loaded during checkAuth() via /api/me
+    // Load data from localStorage
+    const saved = localStorage.getItem('cloudMigrationData');
+    const savedUsage = localStorage.getItem('usage');
+    
+    if (saved) {
+        try {
+            const data = JSON.parse(saved);
+            if (data.assessment) appState.assessment = { ...appState.assessment, ...data.assessment };
+            if (data.planning) appState.planning = { ...appState.planning, ...data.planning };
+            if (data.cost) appState.cost = { ...appState.cost, ...data.cost };
+            if (data.checklist) appState.checklist = { ...appState.checklist, ...data.checklist };
+        } catch (e) {
+            console.error('Error loading progress:', e);
+        }
+    }
+    
+    if (savedUsage) {
+        try {
+            const usage = JSON.parse(savedUsage);
+            appState.usage = { ...appState.usage, ...usage };
+            // Handle legacy field name
+            if (usage.lastReportAt) {
+                appState.usage.lastReportDate = usage.lastReportAt;
+            }
+        } catch (e) {
+            console.error('Error loading usage:', e);
+        }
+    }
+    
     populateForms();
     updateAssessment();
     updateMigrationPlan();
