@@ -413,25 +413,41 @@
                 }
                 
                 // Save to localStorage (this is a frontend-only app, no backend needed)
-                localStorage.setItem('user', JSON.stringify(userData));
-                localStorage.setItem('subscription', JSON.stringify({
-                    plan: userData.plan,
-                    status: 'active',
-                    startDate: new Date().toISOString(),
-                    trialEnds: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString()
-                }));
-                
-                // Show success message
-                const submitBtn = form.querySelector('button[type="submit"]');
-                if (submitBtn) {
-                    submitBtn.textContent = 'Creating Account...';
-                    submitBtn.disabled = true;
+                try {
+                    localStorage.setItem('user', JSON.stringify(userData));
+                    localStorage.setItem('subscription', JSON.stringify({
+                        plan: userData.plan,
+                        status: 'active',
+                        startDate: new Date().toISOString(),
+                        trialEnds: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString()
+                    }));
+                    
+                    // Verify it was saved
+                    const savedUser = localStorage.getItem('user');
+                    const savedSub = localStorage.getItem('subscription');
+                    
+                    if (!savedUser || !savedSub) {
+                        throw new Error('Failed to save to localStorage');
+                    }
+                    
+                    console.log('User data saved:', { user: savedUser, subscription: savedSub });
+                    
+                    // Show success message
+                    const submitBtn = form.querySelector('button[type="submit"]');
+                    if (submitBtn) {
+                        submitBtn.textContent = 'Creating Account...';
+                        submitBtn.disabled = true;
+                    }
+                    
+                    // Small delay for UX, then redirect
+                    setTimeout(() => {
+                        console.log('Redirecting to index.html...');
+                        window.location.href = 'index.html';
+                    }, 500);
+                } catch (storageError) {
+                    console.error('localStorage error:', storageError);
+                    alert('Error saving account. Please check if localStorage is enabled in your browser.');
                 }
-                
-                // Small delay for UX, then redirect
-                setTimeout(() => {
-                    window.location.href = 'index.html';
-                }, 500);
             } catch (error) {
                 console.error('Signup error:', error);
                 alert('Signup successful! Redirecting to app...');
@@ -458,15 +474,31 @@
                 }
                 
                 // This is a frontend-only app - no backend needed
-                const user = JSON.parse(localStorage.getItem('user') || '{}');
-                if (user.email && user.email.toLowerCase() === email.toLowerCase()) {
+                const userStr = localStorage.getItem('user');
+                if (!userStr) {
+                    alert('No account found. Please sign up first.');
+                    return;
+                }
+                
+                let user;
+                try {
+                    user = JSON.parse(userStr);
+                } catch (parseError) {
+                    console.error('Error parsing user data:', parseError);
+                    alert('Error reading account data. Please sign up again.');
+                    return;
+                }
+                
+                if (user && user.email && user.email.toLowerCase() === email.toLowerCase()) {
                     // Password check (in production, this would be hashed)
+                    // For demo, we just check if email matches
                     const submitBtn = form.querySelector('button[type="submit"]');
                     if (submitBtn) {
                         submitBtn.textContent = 'Signing in...';
                         submitBtn.disabled = true;
                     }
                     
+                    console.log('Login successful, redirecting...');
                     setTimeout(() => {
                         window.location.href = 'index.html';
                     }, 300);

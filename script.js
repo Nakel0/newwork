@@ -168,11 +168,36 @@ const subscriptionPlans = {
 // Check if user is authenticated (localStorage-based for frontend-only app)
 function checkAuth() {
     try {
-        const user = JSON.parse(localStorage.getItem('user') || 'null');
-        const subscription = JSON.parse(localStorage.getItem('subscription') || 'null');
+        const userStr = localStorage.getItem('user');
+        const subscriptionStr = localStorage.getItem('subscription');
         
-        if (!user || !subscription) {
+        // Check if data exists
+        if (!userStr || !subscriptionStr) {
             // Redirect to landing page if not authenticated
+            if (!window.location.href.includes('landing.html')) {
+                window.location.href = 'landing.html';
+            }
+            return false;
+        }
+        
+        // Parse the data
+        let user, subscription;
+        try {
+            user = JSON.parse(userStr);
+            subscription = JSON.parse(subscriptionStr);
+        } catch (parseError) {
+            console.error('Error parsing localStorage data:', parseError);
+            // Clear corrupted data
+            localStorage.removeItem('user');
+            localStorage.removeItem('subscription');
+            if (!window.location.href.includes('landing.html')) {
+                window.location.href = 'landing.html';
+            }
+            return false;
+        }
+        
+        // Validate that we have required fields
+        if (!user || !user.email || !subscription || !subscription.plan) {
             if (!window.location.href.includes('landing.html')) {
                 window.location.href = 'landing.html';
             }
