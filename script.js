@@ -45,6 +45,25 @@ const appState = {
     }
 };
 
+// -------------------------
+// API helper (cookie-based session)
+// -------------------------
+async function api(path, options = {}) {
+    const res = await fetch(path, {
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json', ...(options.headers || {}) },
+        ...options
+    });
+    const text = await res.text();
+    let json = null;
+    try { json = text ? JSON.parse(text) : null; } catch {}
+    if (!res.ok) {
+        const err = (json && json.error) ? json.error : `http_${res.status}`;
+        throw new Error(err);
+    }
+    return json;
+}
+
 // Subscription Plans Configuration
 const subscriptionPlans = {
     free: {
@@ -102,21 +121,42 @@ const subscriptionPlans = {
 };
 
 // Check if user is authenticated
-function checkAuth() {
-    const user = JSON.parse(localStorage.getItem('user') || 'null');
-    const subscription = JSON.parse(localStorage.getItem('subscription') || 'null');
-    
-    if (!user || !subscription) {
-        // Redirect to landing page if not authenticated
+async function checkAuth() {
+    try {
+        const me = await api('/api/me');
+        appState.user = {
+            ...me.user,
+            // keep legacy field name used by UI
+            company: me.user.companyName
+        };
+        appState.subscription = {
+            plan: me.subscription?.plan || 'free',
+            status: me.subscription?.status || 'active',
+            trialEnds: me.subscription?.trialEndsAt || null
+        };
+        appState.usage = {
+            ...appState.usage,
+            servers: me.usage?.servers || 0,
+            plans: me.usage?.plans || 0,
+            reportsThisMonth: me.usage?.reportsThisMonth || 0,
+            lastReportDate: me.usage?.lastReportAt || null
+        };
+
+        // Load saved app state from DB
+        if (me.appState && typeof me.appState === 'object') {
+            if (me.appState.assessment) appState.assessment = { ...appState.assessment, ...me.appState.assessment };
+            if (me.appState.planning) appState.planning = { ...appState.planning, ...me.appState.planning };
+            if (me.appState.cost) appState.cost = { ...appState.cost, ...me.appState.cost };
+            if (me.appState.checklist) appState.checklist = { ...appState.checklist, ...me.appState.checklist };
+        }
+
+        return true;
+    } catch {
         if (!window.location.href.includes('landing.html')) {
             window.location.href = 'landing.html';
         }
         return false;
     }
-    
-    appState.user = user;
-    appState.subscription = subscription;
-    return true;
 }
 
 // Get current subscription plan
@@ -131,13 +171,13 @@ function hasFeature(feature) {
 }
 
 // Check usage limits
-function checkUsageLimit(limitType) {
+function checkUsageLimit(limitType, usageKey = limitType) {
     const plan = getCurrentPlan();
     const limit = plan.limits[limitType];
     
     if (limit === -1) return true; // unlimited
     
-    const currentUsage = appState.usage[limitType];
+    const currentUsage = appState.usage[usageKey] || 0;
     return currentUsage < limit;
 }
 
@@ -192,12 +232,16 @@ function updateUsageUI() {
 }
 
 // Upgrade plan
-function upgradePlan(planName) {
-    appState.subscription.plan = planName;
-    localStorage.setItem('subscription', JSON.stringify(appState.subscription));
-    updateSubscriptionUI();
-    showToast(`Upgraded to ${subscriptionPlans[planName].name} plan!`);
-    closeUpgradeModal();
+async function upgradePlan(planName) {
+    try {
+        const { url } = await api('/api/billing/checkout', {
+            method: 'POST',
+            body: JSON.stringify({ plan: planName })
+        });
+        window.location.href = url;
+    } catch {
+        showToast('Unable to start checkout. Please try again.', 'error');
+    }
 }
 
 // Show upgrade modal
@@ -292,23 +336,16 @@ function closeUpgradeModal() {
 // Process upgrade (in production, this would integrate with Stripe)
 function processUpgrade() {
     const plan = document.getElementById('confirmUpgradeBtn').getAttribute('data-plan');
-    
-    // In production, redirect to Stripe Checkout
-    // For demo, we'll simulate the upgrade
-    showToast('Redirecting to checkout... (Demo: Upgrade will be processed)');
-    
-    setTimeout(() => {
-        upgradePlan(plan);
-        // In production: window.location.href = `/checkout?plan=${plan}`;
-    }, 1000);
+    showToast('Redirecting to checkout...');
+    upgradePlan(plan);
 }
 
 // Handle logout
 function handleLogout() {
     if (confirm('Are you sure you want to sign out?')) {
-        localStorage.removeItem('user');
-        localStorage.removeItem('subscription');
-        window.location.href = 'landing.html';
+        api('/api/auth/logout', { method: 'POST' }).finally(() => {
+            window.location.href = 'landing.html';
+        });
     }
 }
 
@@ -480,7 +517,7 @@ function calculateAssessmentResults() {
 // Migration Planning Functions
 function updateMigrationPlan() {
     // Check plan limit
-    if (!checkUsageLimit('maxPlans')) {
+    if (!checkUsageLimit('maxPlans', 'plans')) {
         const plan = getCurrentPlan();
         showFeatureLock(`Your ${plan.name} plan allows ${plan.limits.maxPlans} migration plan(s). Please upgrade for unlimited plans.`);
         return;
@@ -817,7 +854,7 @@ function updateProviderRecommendation() {
 // Report Generation
 function generateReport(type = 'full') {
     // Check report limit
-    if (!checkUsageLimit('maxReportsPerMonth')) {
+    if (!checkUsageLimit('maxReportsPerMonth', 'reportsThisMonth')) {
         const plan = getCurrentPlan();
         showFeatureLock(`Your ${plan.name} plan allows ${plan.limits.maxReportsPerMonth} report(s) per month. Please upgrade for unlimited reports.`);
         return;
@@ -969,42 +1006,45 @@ function downloadReport(type) {
 }
 
 // Save/Load Functions
-function saveProgress() {
+async function saveProgress(options = {}) {
+    const { silent = false } = options;
     const data = {
         assessment: appState.assessment,
         planning: appState.planning,
         cost: appState.cost,
         checklist: appState.checklist
     };
-    localStorage.setItem('cloudMigrationData', JSON.stringify(data));
-    localStorage.setItem('usage', JSON.stringify(appState.usage));
-    
-    // Update last report date if report was generated
-    if (appState.usage.reportsThisMonth > 0) {
+
+    // Keep last report timestamp consistent
+    if (appState.usage.reportsThisMonth > 0 && !appState.usage.lastReportDate) {
         appState.usage.lastReportDate = new Date().toISOString();
-        localStorage.setItem('usage', JSON.stringify(appState.usage));
     }
-    
-    showToast('Progress saved successfully!');
+
+    try {
+        await api('/api/app/state', {
+            method: 'PUT',
+            body: JSON.stringify({
+                data,
+                usage: {
+                    servers: appState.usage.servers,
+                    plans: appState.usage.plans,
+                    reportsThisMonth: appState.usage.reportsThisMonth,
+                    lastReportAt: appState.usage.lastReportDate || null
+                }
+            })
+        });
+        if (!silent) showToast('Progress saved successfully!');
+    } catch {
+        if (!silent) showToast('Save failed. Please try again.', 'error');
+    }
 }
 
 function loadProgress() {
-    const saved = localStorage.getItem('cloudMigrationData');
-    if (saved) {
-        try {
-            const data = JSON.parse(saved);
-            if (data.assessment) appState.assessment = { ...appState.assessment, ...data.assessment };
-            if (data.planning) appState.planning = { ...appState.planning, ...data.planning };
-            if (data.cost) appState.cost = { ...appState.cost, ...data.cost };
-            if (data.checklist) appState.checklist = { ...appState.checklist, ...data.checklist };
-            populateForms();
-            updateAssessment();
-            updateMigrationPlan();
-            updateCostAnalysis();
-        } catch (e) {
-            console.error('Error loading progress:', e);
-        }
-    }
+    // Data is loaded during checkAuth() via /api/me
+    populateForms();
+    updateAssessment();
+    updateMigrationPlan();
+    updateCostAnalysis();
 }
 
 function populateForms() {
@@ -1056,15 +1096,13 @@ function showToast(message, type = 'success') {
 }
 
 // Event Listeners
-document.getElementById('saveBtn').addEventListener('click', saveProgress);
+document.getElementById('saveBtn').addEventListener('click', () => saveProgress({ silent: false }));
 document.getElementById('exportBtn').addEventListener('click', () => generateReport('full'));
 
 // Initialize
-window.addEventListener('DOMContentLoaded', () => {
-    // Check authentication
-    if (!checkAuth()) {
-        return;
-    }
+window.addEventListener('DOMContentLoaded', async () => {
+    // Check authentication (server session cookie)
+    if (!(await checkAuth())) return;
     
     // Initialize user UI
     if (appState.user) {
@@ -1084,12 +1122,6 @@ window.addEventListener('DOMContentLoaded', () => {
     
     // Load progress
     loadProgress();
-    
-    // Load usage data
-    const savedUsage = JSON.parse(localStorage.getItem('usage') || 'null');
-    if (savedUsage) {
-        appState.usage = { ...appState.usage, ...savedUsage };
-    }
     
     // Reset monthly report count if new month
     const lastReportDate = appState.usage.lastReportDate;
@@ -1808,6 +1840,6 @@ function initializeTCO() {
 // Auto-save on changes
 setInterval(() => {
     if (appState.assessment.physicalServers > 0 || appState.assessment.currentCost > 0) {
-        saveProgress();
+        saveProgress({ silent: true });
     }
 }, 30000); // Auto-save every 30 seconds

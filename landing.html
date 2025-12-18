@@ -332,6 +332,22 @@
     </div>
 
     <script>
+        async function api(path, options = {}) {
+            const res = await fetch(path, {
+                credentials: 'include',
+                headers: { 'Content-Type': 'application/json', ...(options.headers || {}) },
+                ...options
+            });
+            const text = await res.text();
+            let json = null;
+            try { json = text ? JSON.parse(text) : null; } catch {}
+            if (!res.ok) {
+                const err = (json && json.error) ? json.error : `http_${res.status}`;
+                throw new Error(err);
+            }
+            return json;
+        }
+
         // Modal functions
         function showSignup(plan = 'free') {
             document.getElementById('signupModal').style.display = 'block';
@@ -346,41 +362,51 @@
             });
         }
 
-        function handleSignup(e) {
+        async function handleSignup(e) {
             e.preventDefault();
-            const formData = new FormData(e.target);
-            const userData = {
-                name: e.target.querySelector('input[type="text"]').value,
-                email: e.target.querySelector('input[type="email"]').value,
-                password: e.target.querySelector('input[type="password"]').value,
-                company: e.target.querySelectorAll('input[type="text"]')[1].value,
-                plan: document.getElementById('selectedPlan').value
-            };
-            
-            // Save to localStorage (in production, this would go to backend)
-            localStorage.setItem('user', JSON.stringify(userData));
-            localStorage.setItem('subscription', JSON.stringify({
-                plan: userData.plan,
-                status: 'active',
-                startDate: new Date().toISOString(),
-                trialEnds: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString()
-            }));
-            
-            // Redirect to app
-            window.location.href = 'index.html';
+            const name = e.target.querySelector('input[type="text"]').value;
+            const email = e.target.querySelector('input[type="email"]').value;
+            const password = e.target.querySelector('input[type="password"]').value;
+            const companyName = e.target.querySelectorAll('input[type="text"]')[1].value;
+            const plan = document.getElementById('selectedPlan').value;
+
+            try {
+                await api('/api/auth/signup', {
+                    method: 'POST',
+                    body: JSON.stringify({ name, email, password, companyName, plan })
+                });
+
+                if (plan !== 'free') {
+                    const checkout = await api('/api/billing/checkout', {
+                        method: 'POST',
+                        body: JSON.stringify({ plan })
+                    });
+                    window.location.href = checkout.url;
+                    return;
+                }
+
+                window.location.href = 'index.html';
+            } catch (err) {
+                const msg = err.message === 'email_in_use'
+                    ? 'Email already in use. Try signing in instead.'
+                    : 'Signup failed. Please check your details and try again.';
+                alert(msg);
+            }
         }
 
-        function handleLogin(e) {
+        async function handleLogin(e) {
             e.preventDefault();
             const email = e.target.querySelector('input[type="email"]').value;
             const password = e.target.querySelector('input[type="password"]').value;
-            
-            // In production, this would authenticate with backend
-            const user = JSON.parse(localStorage.getItem('user') || '{}');
-            if (user.email === email) {
+
+            try {
+                await api('/api/auth/login', {
+                    method: 'POST',
+                    body: JSON.stringify({ email, password })
+                });
                 window.location.href = 'index.html';
-            } else {
-                alert('Invalid credentials. Please sign up first.');
+            } catch {
+                alert('Invalid credentials.');
             }
         }
 
