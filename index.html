@@ -8,6 +8,7 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 </head>
 <body>
     <!-- Navigation -->
@@ -783,6 +784,24 @@
                     <div class="report-content">
                         <h2>Report Preview</h2>
                         <p>Select a report type above to generate and preview your migration report.</p>
+                    </div>
+                </div>
+                
+                <div class="export-actions" style="margin-top: 2rem; padding-top: 2rem; border-top: 2px solid #e2e8f0;">
+                    <h3 style="margin-bottom: 1rem; color: #2d3748;">Export Data</h3>
+                    <div style="display: flex; gap: 1rem; flex-wrap: wrap;">
+                        <button class="btn-primary" onclick="exportToCSV()">
+                            <i class="fas fa-file-csv"></i> Export to CSV
+                        </button>
+                        <button class="btn-primary" onclick="exportToExcel()">
+                            <i class="fas fa-file-excel"></i> Export to Excel
+                        </button>
+                        <button class="btn-secondary" onclick="exportAssessmentData()">
+                            <i class="fas fa-table"></i> Export Assessment Data
+                        </button>
+                        <button class="btn-secondary" onclick="exportCostData()">
+                            <i class="fas fa-dollar-sign"></i> Export Cost Data
+                        </button>
                     </div>
                 </div>
             </div>

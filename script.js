@@ -1933,7 +1933,7 @@ function shareTimeline() {
     }
 }
 
-// PDF Report Download Functions
+// PDF Report Download Functions - Enhanced with professional formatting
 function downloadPDFReport(type) {
     const plan = getCurrentPlan();
     if (!plan.limits.pdfExport) {
@@ -1948,31 +1948,194 @@ function downloadPDFReport(type) {
     
     const { jsPDF } = window.jspdf;
     const doc = new jsPDF();
+    const pageWidth = doc.internal.pageSize.getWidth();
+    const pageHeight = doc.internal.pageSize.getHeight();
+    const margin = 20;
+    const contentWidth = pageWidth - (margin * 2);
+    let y = margin;
+    
+    // Helper function to add header
+    function addHeader() {
+        doc.setFillColor(102, 126, 234); // Primary color
+        doc.rect(0, 0, pageWidth, 40, 'F');
+        doc.setTextColor(255, 255, 255);
+        doc.setFontSize(24);
+        doc.setFont('helvetica', 'bold');
+        doc.text('CloudMigrate Pro', margin, 25);
+        doc.setFontSize(10);
+        doc.setFont('helvetica', 'normal');
+        doc.text('Cloud Migration Planning Report', margin, 35);
+        doc.setTextColor(0, 0, 0);
+        y = 50;
+    }
+    
+    // Helper function to add footer
+    function addFooter(pageNum, totalPages) {
+        const footerY = pageHeight - 15;
+        doc.setFontSize(8);
+        doc.setTextColor(128, 128, 128);
+        doc.text(`Page ${pageNum} of ${totalPages}`, pageWidth / 2, footerY, { align: 'center' });
+        doc.text(`Generated on ${new Date().toLocaleDateString()}`, margin, footerY);
+        doc.text(`© ${new Date().getFullYear()} CloudMigrate Pro`, pageWidth - margin, footerY, { align: 'right' });
+    }
+    
+    // Helper function to add section header
+    function addSectionHeader(text, yPos) {
+        doc.setFillColor(240, 240, 240);
+        doc.rect(margin, yPos - 5, contentWidth, 10, 'F');
+        doc.setFontSize(16);
+        doc.setFont('helvetica', 'bold');
+        doc.setTextColor(102, 126, 234);
+        doc.text(text, margin, yPos + 3);
+        doc.setFontSize(11);
+        doc.setFont('helvetica', 'normal');
+        doc.setTextColor(0, 0, 0);
+        return yPos + 10;
+    }
+    
+    // Helper function to add text with word wrap
+    function addText(text, yPos, maxWidth = contentWidth) {
+        const lines = doc.splitTextToSize(text, maxWidth);
+        doc.text(lines, margin, yPos);
+        return yPos + (lines.length * 5);
+    }
+    
+    // Helper function to check if new page needed
+    function checkNewPage(requiredSpace = 20) {
+        if (y + requiredSpace > pageHeight - 30) {
+            const currentPage = doc.internal.getCurrentPageInfo().pageNumber;
+            addFooter(currentPage, currentPage);
+            doc.addPage();
+            addHeader();
+            return true;
+        }
+        return false;
+    }
+    
+    // Add header to first page
+    addHeader();
+    
+    // Title
+    doc.setFontSize(22);
+    doc.setFont('helvetica', 'bold');
+    doc.text(getReportTitle(type), margin, y);
+    y += 15;
+    
+    // Report metadata
+    doc.setFontSize(10);
+    doc.setFont('helvetica', 'normal');
+    if (appState.user) {
+        y = addText(`Prepared for: ${appState.user.name} (${appState.user.email})`, y);
+        if (appState.user.company) {
+            y = addText(`Company: ${appState.user.company}`, y);
+        }
+    }
+    y = addText(`Report Type: ${type.charAt(0).toUpperCase() + type.slice(1)} Report`, y);
+    y = addText(`Generated: ${new Date().toLocaleString()}`, y);
+    y += 10;
     
     // Generate report content
     const reportContent = generateReportContent(type);
     
-    // Simple PDF generation (in production, use more sophisticated formatting)
-    doc.setFontSize(20);
-    doc.text(getReportTitle(type), 20, 20);
+    // Parse and format content
+    const sections = reportContent.split(/<h[23]>/i);
     
-    doc.setFontSize(12);
-    const lines = reportContent.replace(/<[^>]*>/g, '').split('\n');
-    let y = 40;
-    
-    lines.forEach(line => {
-        if (line.trim()) {
-            doc.text(line.substring(0, 80), 20, y);
-            y += 7;
-            if (y > 280) {
-                doc.addPage();
-                y = 20;
-            }
+    sections.forEach((section, index) => {
+        if (index === 0) return; // Skip first empty section
+        
+        checkNewPage(30);
+        
+        // Extract section title
+        const titleMatch = section.match(/>(.*?)<\/h[23]>/i);
+        if (titleMatch) {
+            y = addSectionHeader(titleMatch[1], y);
         }
+        
+        // Extract and format content
+        let content = section.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
+        
+        // Handle lists
+        const listItems = section.match(/<li>(.*?)<\/li>/gi);
+        if (listItems) {
+            listItems.forEach(item => {
+                checkNewPage(10);
+                const text = item.replace(/<[^>]*>/g, '').trim();
+                doc.setFontSize(10);
+                doc.text('• ', margin, y);
+                y = addText(text, y, contentWidth - 10);
+            });
+        } else if (content) {
+            checkNewPage(20);
+            y = addText(content, y);
+        }
+        
+        y += 5;
     });
     
-    doc.save(`migration-report-${type}.pdf`);
-    showToast('PDF report downloaded successfully!');
+    // Add assessment data table if available
+    if (appState.assessment && (appState.assessment.physicalServers > 0 || appState.assessment.virtualMachines > 0)) {
+        checkNewPage(50);
+        y = addSectionHeader('Infrastructure Assessment', y);
+        y += 5;
+        
+        const tableData = [
+            ['Metric', 'Value'],
+            ['Physical Servers', appState.assessment.physicalServers || 0],
+            ['Virtual Machines', appState.assessment.virtualMachines || 0],
+            ['Total Storage (GB)', appState.assessment.totalStorage || 0],
+            ['Average CPU Cores', appState.assessment.avgCpuCores || 0],
+            ['Average RAM (GB)', appState.assessment.avgRam || 0],
+            ['Databases', appState.assessment.numDatabases || 0],
+            ['Applications', appState.assessment.numApplications || 0]
+        ];
+        
+        // Simple table
+        doc.setFontSize(9);
+        tableData.forEach((row, rowIndex) => {
+            checkNewPage(10);
+            if (rowIndex === 0) {
+                doc.setFont('helvetica', 'bold');
+                doc.setFillColor(240, 240, 240);
+                doc.rect(margin, y - 4, contentWidth, 8, 'F');
+            } else {
+                doc.setFont('helvetica', 'normal');
+            }
+            doc.text(row[0], margin + 5, y);
+            doc.text(String(row[1]), margin + contentWidth - 50, y, { align: 'right' });
+            y += 7;
+        });
+        y += 5;
+    }
+    
+    // Add cost analysis if available
+    if (appState.cost && appState.cost.currentTotal > 0) {
+        checkNewPage(40);
+        y = addSectionHeader('Cost Analysis', y);
+        y += 5;
+        
+        doc.setFontSize(10);
+        y = addText(`Current Infrastructure Cost: $${appState.cost.currentTotal.toLocaleString()}`, y);
+        y = addText(`Estimated Cloud Cost: $${appState.cost.cloudTotal.toLocaleString()}`, y);
+        const savings = appState.cost.currentTotal - appState.cost.cloudTotal;
+        if (savings > 0) {
+            doc.setTextColor(0, 128, 0);
+            y = addText(`Estimated Savings: $${savings.toLocaleString()}`, y);
+            doc.setTextColor(0, 0, 0);
+        }
+        y += 5;
+    }
+    
+    // Add footer to last page
+    const totalPages = doc.internal.getCurrentPageInfo().pageNumber;
+    for (let i = 1; i <= totalPages; i++) {
+        doc.setPage(i);
+        addFooter(i, totalPages);
+    }
+    
+    // Save PDF
+    const filename = `cloudmigrate-${type}-report-${new Date().toISOString().split('T')[0]}.pdf`;
+    doc.save(filename);
+    showToast('Professional PDF report downloaded successfully!');
 }
 
 // Email Course Signup (Landing Page)
@@ -2012,6 +2175,194 @@ function initializeTCO() {
         document.getElementById('tcoCloudMonthly').value = appState.cost.cloudTotal;
         calculateTCO();
     }
+}
+
+// CSV/Excel Export Functions
+function exportToCSV() {
+    const plan = getCurrentPlan();
+    if (!plan.limits.excelExport) {
+        showUpgradeModal();
+        return;
+    }
+    
+    const data = prepareExportData();
+    const csv = convertToCSV(data);
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    const url = URL.createObjectURL(blob);
+    link.setAttribute('href', url);
+    link.setAttribute('download', `cloudmigrate-data-${new Date().toISOString().split('T')[0]}.csv`);
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    showToast('CSV file downloaded successfully!');
+}
+
+function exportToExcel() {
+    const plan = getCurrentPlan();
+    if (!plan.limits.excelExport) {
+        showUpgradeModal();
+        return;
+    }
+    
+    if (typeof XLSX === 'undefined') {
+        showToast('Excel library not loaded. Please refresh the page.');
+        return;
+    }
+    
+    const workbook = XLSX.utils.book_new();
+    
+    // Assessment sheet
+    const assessmentData = prepareAssessmentData();
+    const assessmentSheet = XLSX.utils.aoa_to_sheet(assessmentData);
+    XLSX.utils.book_append_sheet(workbook, assessmentSheet, 'Assessment');
+    
+    // Cost Analysis sheet
+    const costData = prepareCostData();
+    const costSheet = XLSX.utils.aoa_to_sheet(costData);
+    XLSX.utils.book_append_sheet(workbook, costSheet, 'Cost Analysis');
+    
+    // Planning sheet
+    const planningData = preparePlanningData();
+    const planningSheet = XLSX.utils.aoa_to_sheet(planningData);
+    XLSX.utils.book_append_sheet(workbook, planningSheet, 'Migration Plan');
+    
+    // Checklist sheet
+    if (appState.checklist && appState.checklist.tasks && appState.checklist.tasks.length > 0) {
+        const checklistData = prepareChecklistData();
+        const checklistSheet = XLSX.utils.aoa_to_sheet(checklistData);
+        XLSX.utils.book_append_sheet(workbook, checklistSheet, 'Checklist');
+    }
+    
+    // Generate Excel file
+    XLSX.writeFile(workbook, `cloudmigrate-report-${new Date().toISOString().split('T')[0]}.xlsx`);
+    showToast('Excel file downloaded successfully!');
+}
+
+function prepareExportData() {
+    return {
+        assessment: prepareAssessmentData(),
+        cost: prepareCostData(),
+        planning: preparePlanningData(),
+        checklist: prepareChecklistData()
+    };
+}
+
+function prepareAssessmentData() {
+    const a = appState.assessment;
+    return [
+        ['Infrastructure Assessment', ''],
+        ['Metric', 'Value'],
+        ['Physical Servers', a.physicalServers || 0],
+        ['Virtual Machines', a.virtualMachines || 0],
+        ['Total Storage (GB)', a.totalStorage || 0],
+        ['Average CPU Cores', a.avgCpuCores || 4],
+        ['Average RAM (GB)', a.avgRam || 16],
+        ['Number of Databases', a.numDatabases || 0],
+        ['Database Types', a.databaseTypes.join(', ') || 'None'],
+        ['Number of Applications', a.numApplications || 0],
+        ['Application Types', a.applicationTypes.join(', ') || 'None'],
+        ['Monthly Bandwidth (GB)', a.monthlyBandwidth || 0],
+        ['Security Requirements', a.securityRequirements.join(', ') || 'None'],
+        ['Current Monthly Cost', `$${a.currentCost || 0}`]
+    ];
+}
+
+function prepareCostData() {
+    const c = appState.cost;
+    const savings = c.currentTotal - c.cloudTotal;
+    return [
+        ['Cost Analysis', ''],
+        ['Category', 'Amount'],
+        ['Current Infrastructure Cost (Monthly)', `$${c.currentTotal.toLocaleString()}`],
+        ['Estimated Cloud Cost (Monthly)', `$${c.cloudTotal.toLocaleString()}`],
+        ['Monthly Savings', `$${savings.toLocaleString()}`],
+        ['Annual Current Cost', `$${(c.currentTotal * 12).toLocaleString()}`],
+        ['Annual Cloud Cost', `$${(c.cloudTotal * 12).toLocaleString()}`],
+        ['Annual Savings', `$${(savings * 12).toLocaleString()}`],
+        ['ROI (%)', savings > 0 ? `${((savings / c.currentTotal) * 100).toFixed(2)}%` : '0%']
+    ];
+}
+
+function preparePlanningData() {
+    const p = appState.planning;
+    return [
+        ['Migration Plan', ''],
+        ['Field', 'Value'],
+        ['Cloud Provider', p.cloudProvider || 'Not selected'],
+        ['Migration Strategy', p.migrationStrategy || 'Not selected'],
+        ['Migration Priority', p.migrationPriority || 'medium'],
+        ['Team Size', p.teamSize || 5],
+        ['Start Date', p.startDate || 'Not set'],
+        ['End Date', p.endDate || 'Not set']
+    ];
+}
+
+function prepareChecklistData() {
+    const tasks = appState.checklist?.tasks || [];
+    const data = [['Migration Checklist', ''], ['Task', 'Status', 'Priority', 'Due Date', 'Notes']];
+    tasks.forEach(task => {
+        data.push([
+            task.title || '',
+            task.status || 'pending',
+            task.priority || 'medium',
+            task.dueDate || '',
+            task.notes || ''
+        ]);
+    });
+    return data;
+}
+
+function convertToCSV(data) {
+    let csv = '';
+    
+    // Assessment
+    csv += 'Infrastructure Assessment\n';
+    data.assessment.forEach(row => {
+        csv += row.map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(',') + '\n';
+    });
+    csv += '\n';
+    
+    // Cost
+    csv += 'Cost Analysis\n';
+    data.cost.forEach(row => {
+        csv += row.map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(',') + '\n';
+    });
+    csv += '\n';
+    
+    // Planning
+    csv += 'Migration Plan\n';
+    data.planning.forEach(row => {
+        csv += row.map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(',') + '\n';
+    });
+    
+    return csv;
+}
+
+function exportAssessmentData() {
+    const data = prepareAssessmentData();
+    const csv = data.map(row => row.map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(',')).join('\n');
+    downloadCSV(csv, 'assessment-data');
+}
+
+function exportCostData() {
+    const data = prepareCostData();
+    const csv = data.map(row => row.map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(',')).join('\n');
+    downloadCSV(csv, 'cost-analysis');
+}
+
+function downloadCSV(csv, filename) {
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    const url = URL.createObjectURL(blob);
+    link.setAttribute('href', url);
+    link.setAttribute('download', `${filename}-${new Date().toISOString().split('T')[0]}.csv`);
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    showToast('CSV file downloaded successfully!');
 }
 
 // Auto-save on changes

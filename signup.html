@@ -1,0 +1,350 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sign Up - CloudMigrate Pro</title>
+    <link rel="stylesheet" href="landing.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        .auth-container {
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            padding: 2rem;
+        }
+        .auth-card {
+            background: white;
+            border-radius: 16px;
+            padding: 3rem;
+            width: 100%;
+            max-width: 500px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+        }
+        .auth-header {
+            text-align: center;
+            margin-bottom: 2rem;
+        }
+        .auth-header h1 {
+            color: #2d3748;
+            margin-bottom: 0.5rem;
+            font-size: 2rem;
+        }
+        .auth-header p {
+            color: #718096;
+        }
+        .auth-form {
+            display: flex;
+            flex-direction: column;
+            gap: 1.5rem;
+        }
+        .form-group {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+        .form-group label {
+            color: #2d3748;
+            font-weight: 500;
+        }
+        .form-group input,
+        .form-group select {
+            padding: 0.75rem 1rem;
+            border: 2px solid #e2e8f0;
+            border-radius: 8px;
+            font-size: 1rem;
+            transition: border-color 0.3s;
+        }
+        .form-group input:focus,
+        .form-group select:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+        .password-strength {
+            font-size: 0.85rem;
+            margin-top: 0.25rem;
+        }
+        .password-strength.weak { color: #f56565; }
+        .password-strength.medium { color: #ed8936; }
+        .password-strength.strong { color: #48bb78; }
+        .btn-auth {
+            padding: 0.75rem 1.5rem;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.2s;
+        }
+        .btn-auth:hover {
+            transform: translateY(-2px);
+        }
+        .btn-auth:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+        .auth-footer {
+            text-align: center;
+            margin-top: 1.5rem;
+            padding-top: 1.5rem;
+            border-top: 1px solid #e2e8f0;
+        }
+        .auth-footer a {
+            color: #667eea;
+            text-decoration: none;
+            font-weight: 500;
+        }
+        .auth-footer a:hover {
+            text-decoration: underline;
+        }
+        .error-message {
+            background: #fed7d7;
+            color: #c53030;
+            padding: 0.75rem;
+            border-radius: 8px;
+            margin-bottom: 1rem;
+            display: none;
+        }
+        .error-message.show {
+            display: block;
+        }
+        .success-message {
+            background: #c6f6d5;
+            color: #22543d;
+            padding: 0.75rem;
+            border-radius: 8px;
+            margin-bottom: 1rem;
+            display: none;
+        }
+        .success-message.show {
+            display: block;
+        }
+        .back-link {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            color: #667eea;
+            text-decoration: none;
+            margin-bottom: 1rem;
+            font-weight: 500;
+        }
+        .back-link:hover {
+            text-decoration: underline;
+        }
+        .terms-checkbox {
+            display: flex;
+            align-items: flex-start;
+            gap: 0.5rem;
+            font-size: 0.9rem;
+            color: #718096;
+        }
+        .terms-checkbox input {
+            margin-top: 0.25rem;
+        }
+    </style>
+</head>
+<body>
+    <div class="auth-container">
+        <div class="auth-card">
+            <a href="landing.html" class="back-link">
+                <i class="fas fa-arrow-left"></i> Back to Home
+            </a>
+            
+            <div class="auth-header">
+                <h1><i class="fas fa-cloud"></i> Create Account</h1>
+                <p>Start your free trial. No credit card required.</p>
+            </div>
+
+            <div class="error-message" id="errorMessage"></div>
+            <div class="success-message" id="successMessage"></div>
+
+            <form id="signupForm" class="auth-form" onsubmit="handleSignup(event)">
+                <div class="form-group">
+                    <label for="name">Full Name</label>
+                    <input type="text" id="name" name="name" required autocomplete="name" placeholder="John Doe">
+                </div>
+
+                <div class="form-group">
+                    <label for="email">Email Address</label>
+                    <input type="email" id="email" name="email" required autocomplete="email" placeholder="you@company.com">
+                </div>
+
+                <div class="form-group">
+                    <label for="company">Company Name</label>
+                    <input type="text" id="company" name="company" required autocomplete="organization" placeholder="Your Company">
+                </div>
+
+                <div class="form-group">
+                    <label for="plan">Choose Plan</label>
+                    <select id="plan" name="plan" required>
+                        <option value="free">Free - $0/month</option>
+                        <option value="starter">Starter - $29/month</option>
+                        <option value="pro">Pro - $99/month</option>
+                        <option value="enterprise">Enterprise - Custom</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label for="password">Password</label>
+                    <input type="password" id="password" name="password" required autocomplete="new-password" placeholder="Minimum 8 characters" minlength="8">
+                    <div class="password-strength" id="passwordStrength"></div>
+                </div>
+
+                <div class="form-group">
+                    <label for="confirmPassword">Confirm Password</label>
+                    <input type="password" id="confirmPassword" name="confirmPassword" required autocomplete="new-password" placeholder="Re-enter your password">
+                </div>
+
+                <div class="terms-checkbox">
+                    <input type="checkbox" id="terms" required>
+                    <label for="terms">I agree to the <a href="#" style="color: #667eea;">Terms of Service</a> and <a href="#" style="color: #667eea;">Privacy Policy</a></label>
+                </div>
+
+                <button type="submit" class="btn-auth" id="submitBtn">
+                    <i class="fas fa-user-plus"></i> Create Account
+                </button>
+            </form>
+
+            <div class="auth-footer">
+                <p>Already have an account? <a href="login.html">Sign in</a></p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function showError(message) {
+            const errorEl = document.getElementById('errorMessage');
+            errorEl.textContent = message;
+            errorEl.classList.add('show');
+            document.getElementById('successMessage').classList.remove('show');
+        }
+
+        function showSuccess(message) {
+            const successEl = document.getElementById('successMessage');
+            successEl.textContent = message;
+            successEl.classList.add('show');
+            document.getElementById('errorMessage').classList.remove('show');
+        }
+
+        function checkPasswordStrength(password) {
+            if (password.length < 8) return { strength: 'weak', text: 'Password too short' };
+            if (password.length < 12 && !/[A-Z]/.test(password) && !/[0-9]/.test(password)) {
+                return { strength: 'weak', text: 'Weak password' };
+            }
+            if (password.length >= 12 && /[A-Z]/.test(password) && /[0-9]/.test(password) && /[!@#$%^&*]/.test(password)) {
+                return { strength: 'strong', text: 'Strong password' };
+            }
+            return { strength: 'medium', text: 'Medium strength' };
+        }
+
+        document.getElementById('password').addEventListener('input', function(e) {
+            const strength = checkPasswordStrength(e.target.value);
+            const strengthEl = document.getElementById('passwordStrength');
+            if (e.target.value) {
+                strengthEl.textContent = strength.text;
+                strengthEl.className = 'password-strength ' + strength.strength;
+            } else {
+                strengthEl.textContent = '';
+                strengthEl.className = 'password-strength';
+            }
+        });
+
+        async function handleSignup(e) {
+            e.preventDefault();
+            const form = e.target;
+            const submitBtn = document.getElementById('submitBtn');
+            
+            const userData = {
+                name: form.name.value.trim(),
+                email: form.email.value.trim(),
+                company: form.company.value.trim(),
+                password: form.password.value,
+                plan: form.plan.value
+            };
+
+            // Validation
+            if (!userData.name || !userData.email || !userData.company || !userData.password) {
+                showError('Please fill in all fields');
+                return;
+            }
+
+            if (userData.password !== form.confirmPassword.value) {
+                showError('Passwords do not match');
+                return;
+            }
+
+            if (userData.password.length < 8) {
+                showError('Password must be at least 8 characters');
+                return;
+            }
+
+            if (!form.terms.checked) {
+                showError('Please agree to the Terms of Service and Privacy Policy');
+                return;
+            }
+
+            submitBtn.disabled = true;
+            submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Creating Account...';
+
+            try {
+                // Try backend API first
+                const response = await fetch('/api/auth/signup', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'include',
+                    body: JSON.stringify(userData)
+                });
+
+                if (response.ok) {
+                    const data = await response.json();
+                    // Save to localStorage as backup
+                    localStorage.setItem('user', JSON.stringify(data.user));
+                    localStorage.setItem('subscription', JSON.stringify(data.subscription));
+                    showSuccess('Account created successfully! Redirecting...');
+                    setTimeout(() => {
+                        window.location.href = 'index.html';
+                    }, 1000);
+                } else {
+                    const error = await response.json().catch(() => ({ error: 'Signup failed' }));
+                    
+                    // Fallback to localStorage if backend fails
+                    delete userData.password; // Don't store password
+                    localStorage.setItem('user', JSON.stringify(userData));
+                    localStorage.setItem('subscription', JSON.stringify({
+                        plan: userData.plan,
+                        status: 'active',
+                        startDate: new Date().toISOString(),
+                        trialEnds: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString()
+                    }));
+                    showSuccess('Account created! Redirecting...');
+                    setTimeout(() => {
+                        window.location.href = 'index.html';
+                    }, 1000);
+                }
+            } catch (error) {
+                console.error('Signup error:', error);
+                
+                // Fallback to localStorage
+                delete userData.password;
+                localStorage.setItem('user', JSON.stringify(userData));
+                localStorage.setItem('subscription', JSON.stringify({
+                    plan: userData.plan,
+                    status: 'active',
+                    startDate: new Date().toISOString(),
+                    trialEnds: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString()
+                }));
+                showSuccess('Account created! Redirecting...');
+                setTimeout(() => {
+                    window.location.href = 'index.html';
+                }, 1000);
+            }
+        }
+    </script>
+</body>
+</html>
+

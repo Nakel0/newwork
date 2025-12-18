@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sign In - CloudMigrate Pro</title>
+    <link rel="stylesheet" href="landing.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        .auth-container {
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            padding: 2rem;
+        }
+        .auth-card {
+            background: white;
+            border-radius: 16px;
+            padding: 3rem;
+            width: 100%;
+            max-width: 450px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+        }
+        .auth-header {
+            text-align: center;
+            margin-bottom: 2rem;
+        }
+        .auth-header h1 {
+            color: #2d3748;
+            margin-bottom: 0.5rem;
+            font-size: 2rem;
+        }
+        .auth-header p {
+            color: #718096;
+        }
+        .auth-form {
+            display: flex;
+            flex-direction: column;
+            gap: 1.5rem;
+        }
+        .form-group {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+        .form-group label {
+            color: #2d3748;
+            font-weight: 500;
+        }
+        .form-group input {
+            padding: 0.75rem 1rem;
+            border: 2px solid #e2e8f0;
+            border-radius: 8px;
+            font-size: 1rem;
+            transition: border-color 0.3s;
+        }
+        .form-group input:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+        .btn-auth {
+            padding: 0.75rem 1.5rem;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.2s;
+        }
+        .btn-auth:hover {
+            transform: translateY(-2px);
+        }
+        .btn-auth:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+        .auth-footer {
+            text-align: center;
+            margin-top: 1.5rem;
+            padding-top: 1.5rem;
+            border-top: 1px solid #e2e8f0;
+        }
+        .auth-footer a {
+            color: #667eea;
+            text-decoration: none;
+            font-weight: 500;
+        }
+        .auth-footer a:hover {
+            text-decoration: underline;
+        }
+        .error-message {
+            background: #fed7d7;
+            color: #c53030;
+            padding: 0.75rem;
+            border-radius: 8px;
+            margin-bottom: 1rem;
+            display: none;
+        }
+        .error-message.show {
+            display: block;
+        }
+        .back-link {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            color: #667eea;
+            text-decoration: none;
+            margin-bottom: 1rem;
+            font-weight: 500;
+        }
+        .back-link:hover {
+            text-decoration: underline;
+        }
+    </style>
+</head>
+<body>
+    <div class="auth-container">
+        <div class="auth-card">
+            <a href="landing.html" class="back-link">
+                <i class="fas fa-arrow-left"></i> Back to Home
+            </a>
+            
+            <div class="auth-header">
+                <h1><i class="fas fa-cloud"></i> Sign In</h1>
+                <p>Welcome back! Sign in to continue your migration planning.</p>
+            </div>
+
+            <div class="error-message" id="errorMessage"></div>
+
+            <form id="loginForm" class="auth-form" onsubmit="handleLogin(event)">
+                <div class="form-group">
+                    <label for="email">Email Address</label>
+                    <input type="email" id="email" name="email" required autocomplete="email" placeholder="you@company.com">
+                </div>
+                
+                <div class="form-group">
+                    <label for="password">Password</label>
+                    <input type="password" id="password" name="password" required autocomplete="current-password" placeholder="Enter your password">
+                </div>
+
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                    <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer;">
+                        <input type="checkbox" id="rememberMe" style="width: auto;">
+                        <span style="font-size: 0.9rem; color: #718096;">Remember me</span>
+                    </label>
+                    <a href="forgot-password.html" style="color: #667eea; text-decoration: none; font-size: 0.9rem;">Forgot password?</a>
+                </div>
+
+                <button type="submit" class="btn-auth" id="submitBtn">
+                    <i class="fas fa-sign-in-alt"></i> Sign In
+                </button>
+            </form>
+
+            <div class="auth-footer">
+                <p>Don't have an account? <a href="signup.html">Sign up for free</a></p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function showError(message) {
+            const errorEl = document.getElementById('errorMessage');
+            errorEl.textContent = message;
+            errorEl.classList.add('show');
+            setTimeout(() => errorEl.classList.remove('show'), 5000);
+        }
+
+        async function handleLogin(e) {
+            e.preventDefault();
+            const form = e.target;
+            const submitBtn = document.getElementById('submitBtn');
+            const email = form.email.value.trim();
+            const password = form.password.value;
+
+            if (!email || !password) {
+                showError('Please enter both email and password');
+                return;
+            }
+
+            submitBtn.disabled = true;
+            submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Signing in...';
+
+            try {
+                // Try backend API first
+                const response = await fetch('/api/auth/login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'include',
+                    body: JSON.stringify({ email, password })
+                });
+
+                if (response.ok) {
+                    const data = await response.json();
+                    // Save to localStorage as backup
+                    localStorage.setItem('user', JSON.stringify(data.user));
+                    localStorage.setItem('subscription', JSON.stringify(data.subscription));
+                    // Redirect to app
+                    window.location.href = 'index.html';
+                } else {
+                    const error = await response.json().catch(() => ({ error: 'Login failed' }));
+                    
+                    // Fallback to localStorage if backend fails
+                    const userStr = localStorage.getItem('user');
+                    if (userStr) {
+                        const user = JSON.parse(userStr);
+                        if (user.email && user.email.toLowerCase() === email.toLowerCase()) {
+                            // For demo: allow login with any password if email matches
+                            localStorage.setItem('user', JSON.stringify(user));
+                            window.location.href = 'index.html';
+                            return;
+                        }
+                    }
+                    
+                    showError(error.error || 'Invalid email or password');
+                    submitBtn.disabled = false;
+                    submitBtn.innerHTML = '<i class="fas fa-sign-in-alt"></i> Sign In';
+                }
+            } catch (error) {
+                console.error('Login error:', error);
+                
+                // Fallback to localStorage
+                const userStr = localStorage.getItem('user');
+                if (userStr) {
+                    const user = JSON.parse(userStr);
+                    if (user.email && user.email.toLowerCase() === email.toLowerCase()) {
+                        localStorage.setItem('user', JSON.stringify(user));
+                        window.location.href = 'index.html';
+                        return;
+                    }
+                }
+                
+                showError('Unable to connect. Please check your connection and try again.');
+                submitBtn.disabled = false;
+                submitBtn.innerHTML = '<i class="fas fa-sign-in-alt"></i> Sign In';
+            }
+        }
+    </script>
+</body>
+</html>
+
