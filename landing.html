@@ -279,7 +279,7 @@
         <div class="modal-content">
             <span class="close-modal" onclick="closeModal()">&times;</span>
             <h2>Create Your Account</h2>
-            <form id="signupForm" onsubmit="handleSignup(event)">
+            <form id="signupForm" onsubmit="return handleSignup(event)">
                 <div class="form-group">
                     <label>Full Name</label>
                     <input type="text" required placeholder="John Doe">
@@ -316,7 +316,7 @@
         <div class="modal-content">
             <span class="close-modal" onclick="closeModal()">&times;</span>
             <h2>Sign In</h2>
-            <form id="loginForm" onsubmit="handleLogin(event)">
+            <form id="loginForm" onsubmit="return handleLogin(event)">
                 <div class="form-group">
                     <label>Email</label>
                     <input type="email" required placeholder="john@company.com">
@@ -387,14 +387,30 @@
 
         function handleSignup(e) {
             e.preventDefault();
+            e.stopPropagation();
+            
             try {
+                const form = e.target;
+                const inputs = form.querySelectorAll('input');
+                
                 const userData = {
-                    name: e.target.querySelector('input[type="text"]').value,
-                    email: e.target.querySelector('input[type="email"]').value,
-                    password: e.target.querySelector('input[type="password"]').value,
-                    company: e.target.querySelectorAll('input[type="text"]')[1].value,
+                    name: inputs[0].value.trim(),
+                    email: inputs[1].value.trim(),
+                    password: inputs[2].value,
+                    company: inputs[3].value.trim(),
                     plan: document.getElementById('selectedPlan').value
                 };
+                
+                // Validate
+                if (!userData.name || !userData.email || !userData.password || !userData.company) {
+                    alert('Please fill in all fields');
+                    return;
+                }
+                
+                if (userData.password.length < 8) {
+                    alert('Password must be at least 8 characters');
+                    return;
+                }
                 
                 // Save to localStorage (this is a frontend-only app, no backend needed)
                 localStorage.setItem('user', JSON.stringify(userData));
@@ -406,10 +422,11 @@
                 }));
                 
                 // Show success message
-                const submitBtn = e.target.querySelector('button[type="submit"]');
-                const originalText = submitBtn.textContent;
-                submitBtn.textContent = 'Creating Account...';
-                submitBtn.disabled = true;
+                const submitBtn = form.querySelector('button[type="submit"]');
+                if (submitBtn) {
+                    submitBtn.textContent = 'Creating Account...';
+                    submitBtn.disabled = true;
+                }
                 
                 // Small delay for UX, then redirect
                 setTimeout(() => {
@@ -418,27 +435,50 @@
             } catch (error) {
                 console.error('Signup error:', error);
                 alert('Signup successful! Redirecting to app...');
-                window.location.href = 'index.html';
+                setTimeout(() => {
+                    window.location.href = 'index.html';
+                }, 100);
             }
+            
+            return false;
         }
 
         function handleLogin(e) {
             e.preventDefault();
+            e.stopPropagation();
+            
             try {
-                const email = e.target.querySelector('input[type="email"]').value;
-                const password = e.target.querySelector('input[type="password"]').value;
+                const form = e.target;
+                const email = form.querySelector('input[type="email"]').value.trim();
+                const password = form.querySelector('input[type="password"]').value;
+                
+                if (!email || !password) {
+                    alert('Please enter both email and password');
+                    return;
+                }
                 
                 // This is a frontend-only app - no backend needed
                 const user = JSON.parse(localStorage.getItem('user') || '{}');
-                if (user.email === email) {
-                    window.location.href = 'index.html';
+                if (user.email && user.email.toLowerCase() === email.toLowerCase()) {
+                    // Password check (in production, this would be hashed)
+                    const submitBtn = form.querySelector('button[type="submit"]');
+                    if (submitBtn) {
+                        submitBtn.textContent = 'Signing in...';
+                        submitBtn.disabled = true;
+                    }
+                    
+                    setTimeout(() => {
+                        window.location.href = 'index.html';
+                    }, 300);
                 } else {
-                    alert('Invalid credentials. Please sign up first.');
+                    alert('Invalid credentials. Please sign up first or check your email.');
                 }
             } catch (error) {
                 console.error('Login error:', error);
                 alert('Login error. Please try again.');
             }
+            
+            return false;
         }
 
         // Close modal on outside click
@@ -471,7 +511,21 @@
             });
         });
 
-        // No backend check needed - this is a frontend-only app
+        // Ensure forms are properly attached (backup method)
+        window.addEventListener('DOMContentLoaded', () => {
+            const signupForm = document.getElementById('signupForm');
+            const loginForm = document.getElementById('loginForm');
+            
+            if (signupForm) {
+                signupForm.addEventListener('submit', handleSignup);
+            }
+            
+            if (loginForm) {
+                loginForm.addEventListener('submit', handleLogin);
+            }
+            
+            console.log('Forms initialized. Signup and login ready.');
+        });
     </script>
 </body>
 </html>
