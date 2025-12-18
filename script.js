@@ -165,14 +165,30 @@ const subscriptionPlans = {
     }
 };
 
-// Check if user is authenticated
-async function checkAuth() {
+// Check if user is authenticated (localStorage-based for frontend-only app)
+function checkAuth() {
     try {
-        const me = await api('/api/me');
-        applyMeToAppState(me, { loadAppState: true });
-
+        const user = JSON.parse(localStorage.getItem('user') || 'null');
+        const subscription = JSON.parse(localStorage.getItem('subscription') || 'null');
+        
+        if (!user || !subscription) {
+            // Redirect to landing page if not authenticated
+            if (!window.location.href.includes('landing.html')) {
+                window.location.href = 'landing.html';
+            }
+            return false;
+        }
+        
+        // Load user data into app state
+        appState.user = user;
+        appState.subscription = subscription;
+        
+        // Load app state from localStorage if available
+        loadProgress();
+        
         return true;
-    } catch {
+    } catch (error) {
+        console.error('Auth check error:', error);
         if (!window.location.href.includes('landing.html')) {
             window.location.href = 'landing.html';
         }
@@ -258,30 +274,27 @@ function updateUsageUI() {
         `${appState.usage.reportsThisMonth} / ${maxReports === -1 ? '∞' : maxReports}`;
 }
 
-// Upgrade plan
-async function upgradePlan(planName) {
-    try {
-        const { url } = await api('/api/billing/checkout', {
-            method: 'POST',
-            body: JSON.stringify({ plan: planName })
-        });
-        window.location.href = url;
-    } catch {
-        showToast('Unable to start checkout. Please try again.', 'error');
-    }
+// Upgrade plan (frontend-only - in production, this would integrate with Stripe)
+function upgradePlan(planName) {
+    // Update subscription in localStorage
+    appState.subscription.plan = planName;
+    appState.subscription.status = 'active';
+    localStorage.setItem('subscription', JSON.stringify(appState.subscription));
+    
+    // Update UI
+    updateSubscriptionUI();
+    updateUsageUI();
+    
+    showToast(`Upgraded to ${subscriptionPlans[planName].name} plan!`, 'success');
+    closeUpgradeModal();
+    
+    // In production, this would redirect to Stripe Checkout:
+    // window.location.href = `/checkout?plan=${planName}`;
 }
 
-async function openBillingPortal() {
-    try {
-        const { url } = await api('/api/billing/portal', { method: 'POST' });
-        window.location.href = url;
-    } catch (e) {
-        if (e.message === 'no_stripe_customer') {
-            showToast('No billing profile yet. Upgrade to create one.', 'error');
-            return;
-        }
-        showToast('Unable to open billing portal.', 'error');
-    }
+function openBillingPortal() {
+    showToast('Billing portal requires Stripe integration. For demo, manage your plan in the Billing section.', 'info');
+    showSection('billing');
 }
 
 async function handlePostCheckoutReturn() {
@@ -413,16 +426,24 @@ function closeUpgradeModal() {
 // Process upgrade (in production, this would integrate with Stripe)
 function processUpgrade() {
     const plan = document.getElementById('confirmUpgradeBtn').getAttribute('data-plan');
-    showToast('Redirecting to checkout...');
-    upgradePlan(plan);
+    
+    // For demo: upgrade directly (in production, redirect to Stripe)
+    if (confirm(`Upgrade to ${subscriptionPlans[plan].name} plan for $${subscriptionPlans[plan].price}/month?`)) {
+        upgradePlan(plan);
+    }
 }
 
 // Handle logout
 function handleLogout() {
     if (confirm('Are you sure you want to sign out?')) {
-        api('/api/auth/logout', { method: 'POST' }).finally(() => {
-            window.location.href = 'landing.html';
-        });
+        // Clear localStorage (frontend-only app)
+        localStorage.removeItem('user');
+        localStorage.removeItem('subscription');
+        localStorage.removeItem('cloudMigrationData');
+        localStorage.removeItem('usage');
+        
+        // Redirect to landing page
+        window.location.href = 'landing.html';
     }
 }
 
@@ -1088,7 +1109,7 @@ function downloadReport(type) {
 }
 
 // Save/Load Functions
-async function saveProgress(options = {}) {
+function saveProgress(options = {}) {
     const { silent = false } = options;
     const data = {
         assessment: appState.assessment,
@@ -1103,20 +1124,18 @@ async function saveProgress(options = {}) {
     }
 
     try {
-        await api('/api/app/state', {
-            method: 'PUT',
-            body: JSON.stringify({
-                data,
-                usage: {
-                    servers: appState.usage.servers,
-                    plans: appState.usage.plans,
-                    reportsThisMonth: appState.usage.reportsThisMonth,
-                    lastReportAt: appState.usage.lastReportDate || null
-                }
-            })
-        });
+        // Save to localStorage (frontend-only app)
+        localStorage.setItem('cloudMigrationData', JSON.stringify(data));
+        localStorage.setItem('usage', JSON.stringify({
+            servers: appState.usage.servers,
+            plans: appState.usage.plans,
+            reportsThisMonth: appState.usage.reportsThisMonth,
+            lastReportDate: appState.usage.lastReportDate || null
+        }));
+        
         if (!silent) showToast('Progress saved successfully!');
-    } catch {
+    } catch (error) {
+        console.error('Save error:', error);
         if (!silent) showToast('Save failed. Please try again.', 'error');
     }
 }
@@ -1182,9 +1201,9 @@ document.getElementById('saveBtn').addEventListener('click', () => saveProgress(
 document.getElementById('exportBtn').addEventListener('click', () => generateReport('full'));
 
 // Initialize
-window.addEventListener('DOMContentLoaded', async () => {
-    // Check authentication (server session cookie)
-    if (!(await checkAuth())) return;
+window.addEventListener('DOMContentLoaded', () => {
+    // Check authentication (localStorage-based)
+    if (!checkAuth()) return;
     
     // Initialize user UI
     if (appState.user) {
