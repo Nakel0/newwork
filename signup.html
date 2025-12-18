@@ -261,7 +261,7 @@
             
             const userData = {
                 name: form.name.value.trim(),
-                email: form.email.value.trim(),
+                email: form.email.value.trim().toLowerCase(), // Store email in lowercase for consistency
                 company: form.company.value.trim(),
                 password: form.password.value,
                 plan: form.plan.value
