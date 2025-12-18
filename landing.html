@@ -332,6 +332,45 @@
     </div>
 
     <script>
+        function showBackendBanner(message) {
+            const existing = document.getElementById('backendStatusBanner');
+            if (existing) return;
+
+            const banner = document.createElement('div');
+            banner.id = 'backendStatusBanner';
+            banner.style.position = 'sticky';
+            banner.style.top = '0';
+            banner.style.zIndex = '3000';
+            banner.style.padding = '0.75rem 1rem';
+            banner.style.background = '#fff5f5';
+            banner.style.borderBottom = '1px solid #fed7d7';
+            banner.style.color = '#742a2a';
+            banner.style.fontWeight = '600';
+            banner.style.textAlign = 'center';
+            banner.textContent = message;
+
+            document.body.prepend(banner);
+        }
+
+        async function api(path, options = {}) {
+            const res = await fetch(path, {
+                credentials: 'include',
+                headers: { 'Content-Type': 'application/json', ...(options.headers || {}) },
+                ...options
+            });
+            const text = await res.text();
+            let json = null;
+            try { json = text ? JSON.parse(text) : null; } catch {}
+            if (!res.ok) {
+                const err = (json && json.error) ? json.error : `http_${res.status}`;
+                throw new Error(err);
+            }
+            return json;
+        }
+
+        // Backend check removed - this is a frontend-only app using localStorage
+        // No backend server needed!
+
         // Modal functions
         function showSignup(plan = 'free') {
             document.getElementById('signupModal').style.display = 'block';
@@ -431,6 +470,8 @@
                 }
             });
         });
+
+        // No backend check needed - this is a frontend-only app
     </script>
 </body>
 </html>

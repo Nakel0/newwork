@@ -90,14 +90,18 @@ This SaaS application is fully monetized with:
 ## 🚀 Getting Started
 
 ### Prerequisites
-- A modern web browser (Chrome, Firefox, Safari, Edge)
-- No installation or backend required - runs entirely in the browser
+- Node.js (recommended: v22+)
+- Postgres database (local Postgres or Docker)
+- Stripe account (for paid plans + webhooks)
 
 ### Installation
-1. Clone or download this repository
-2. Open `landing.html` in your web browser to see the marketing page
-3. Sign up for an account (or open `index.html` directly for demo)
-4. Start planning your cloud migration!
+1. Clone/download this repository
+2. Copy `.env.example` → `.env` and fill in values
+3. Start Postgres (example `docker compose up -d`)
+4. Install deps: `npm install`
+5. Run migrations (needs `DATABASE_URL` exported in your shell): `npm run db:migrate`
+6. Start the app: `npm run dev`
+7. Open: `http://localhost:3000` (landing) and sign up/login
 
 ## 📖 How to Use
 
@@ -132,10 +136,11 @@ This SaaS application is fully monetized with:
 
 ## 💾 Data Persistence
 
-The application automatically saves your progress to browser localStorage:
-- **Auto-save**: Every 30 seconds when data is entered
-- **Manual Save**: Click the save icon in the navigation bar
-- **Data Persistence**: Your data persists across browser sessions
+The application persists user accounts, subscriptions, and app state in **Postgres**:
+- **Auto-save**: every 30 seconds (server-side)
+- **Manual Save**: click the save icon in the navigation bar
+- **Auth**: secure httpOnly cookie session
+- **Billing**: Stripe Checkout + webhooks update subscription status/plan
 
 ## 🎨 Design Features
 
@@ -151,6 +156,9 @@ The application automatically saves your progress to browser localStorage:
 - **HTML5**: Semantic markup
 - **CSS3**: Modern styling with CSS Grid and Flexbox
 - **Vanilla JavaScript**: No framework dependencies
+- **Node.js + Express**: API + auth + Stripe integration
+- **Postgres + Prisma**: database + migrations
+- **Stripe**: subscriptions + customer portal + webhooks
 - **Font Awesome**: Icon library
 - **LocalStorage API**: Client-side data persistence
 
@@ -178,9 +186,9 @@ Calculated based on:
 
 ## 🔒 Privacy & Security
 
-- **Client-side Only**: All data stays in your browser
-- **No External Servers**: No data is sent to external services
-- **LocalStorage**: Data is stored locally on your device
+- **Server-side Accounts**: User data is stored in Postgres (not localStorage)
+- **Secure Sessions**: httpOnly cookies (no tokens in localStorage)
+- **Stripe Billing**: payment data handled by Stripe
 - **No Tracking**: No analytics or tracking scripts
 
 ## 💼 Monetization Features

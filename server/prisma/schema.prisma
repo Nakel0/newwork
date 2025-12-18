@@ -1,0 +1,106 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum SubscriptionPlan {
+  free
+  starter
+  pro
+  enterprise
+}
+
+enum SubscriptionStatus {
+  active
+  trialing
+  past_due
+  canceled
+  incomplete
+  incomplete_expired
+  unpaid
+}
+
+model User {
+  id               String       @id @default(cuid())
+  email            String       @unique
+  passwordHash     String
+  name             String
+  companyName      String
+
+  stripeCustomerId String?      @unique
+
+  subscription     Subscription?
+  usageMonths      UsageMonth[]
+  appState         AppState?
+
+  createdAt        DateTime     @default(now())
+  updatedAt        DateTime     @updatedAt
+
+  @@index([createdAt])
+}
+
+model Subscription {
+  id                 String              @id @default(cuid())
+  userId             String              @unique
+  user               User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  plan               SubscriptionPlan    @default(free)
+  status             SubscriptionStatus  @default(active)
+
+  // Stripe identifiers
+  stripeSubscriptionId String?           @unique
+  stripePriceId        String?
+
+  // Billing period
+  currentPeriodStart DateTime?
+  currentPeriodEnd   DateTime?
+  cancelAtPeriodEnd  Boolean            @default(false)
+  canceledAt         DateTime?
+
+  // Trial
+  trialEndsAt        DateTime?
+
+  createdAt          DateTime           @default(now())
+  updatedAt          DateTime           @updatedAt
+
+  @@index([plan])
+  @@index([status])
+}
+
+model UsageMonth {
+  id              String   @id @default(cuid())
+  userId          String
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // YYYYMM (e.g., 202512)
+  yearMonth       Int
+
+  servers         Int      @default(0)
+  plans           Int      @default(0)
+  reportsThisMonth Int     @default(0)
+  lastReportAt    DateTime?
+
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@unique([userId, yearMonth])
+  @@index([yearMonth])
+}
+
+model AppState {
+  id        String   @id @default(cuid())
+  userId    String   @unique
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // Store the app's state as JSON so the frontend can evolve
+  // Shape: { assessment, planning, cost, checklist }
+  data      Json     @default("{}")
+  version   Int      @default(1)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
