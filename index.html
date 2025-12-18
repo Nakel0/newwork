@@ -741,26 +741,42 @@
 
             <div class="reports-container">
                 <div class="report-actions">
-                    <button class="report-btn" onclick="generateReport('executive')">
-                        <i class="fas fa-briefcase"></i>
-                        <span>Executive Summary</span>
-                    </button>
-                    <button class="report-btn" onclick="generateReport('technical')">
-                        <i class="fas fa-code"></i>
-                        <span>Technical Report</span>
-                    </button>
-                    <button class="report-btn" onclick="generateReport('cost')">
-                        <i class="fas fa-dollar-sign"></i>
-                        <span>Cost Analysis Report</span>
-                    </button>
-                    <button class="report-btn" onclick="generateReport('full')">
-                        <i class="fas fa-file-pdf"></i>
-                        <span>Full Migration Report</span>
-                    </button>
-                    <button class="report-btn" onclick="downloadPDFReport('full')">
-                        <i class="fas fa-file-pdf"></i>
-                        <span>Download PDF</span>
-                    </button>
+                    <div class="report-btn-group">
+                        <button class="report-btn" onclick="generateReport('executive')">
+                            <i class="fas fa-briefcase"></i>
+                            <span>Executive Summary</span>
+                        </button>
+                        <button class="report-download-btn" onclick="downloadPDFReport('executive')" title="Download as PDF">
+                            <i class="fas fa-download"></i>
+                        </button>
+                    </div>
+                    <div class="report-btn-group">
+                        <button class="report-btn" onclick="generateReport('technical')">
+                            <i class="fas fa-code"></i>
+                            <span>Technical Report</span>
+                        </button>
+                        <button class="report-download-btn" onclick="downloadPDFReport('technical')" title="Download as PDF">
+                            <i class="fas fa-download"></i>
+                        </button>
+                    </div>
+                    <div class="report-btn-group">
+                        <button class="report-btn" onclick="generateReport('cost')">
+                            <i class="fas fa-dollar-sign"></i>
+                            <span>Cost Analysis Report</span>
+                        </button>
+                        <button class="report-download-btn" onclick="downloadPDFReport('cost')" title="Download as PDF">
+                            <i class="fas fa-download"></i>
+                        </button>
+                    </div>
+                    <div class="report-btn-group">
+                        <button class="report-btn" onclick="generateReport('full')">
+                            <i class="fas fa-file-pdf"></i>
+                            <span>Full Migration Report</span>
+                        </button>
+                        <button class="report-download-btn" onclick="downloadPDFReport('full')" title="Download as PDF">
+                            <i class="fas fa-download"></i>
+                        </button>
+                    </div>
                 </div>
 
                 <div class="report-preview" id="reportPreview">

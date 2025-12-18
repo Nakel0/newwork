@@ -1302,6 +1302,14 @@ window.addEventListener('DOMContentLoaded', () => {
     updateDashboard();
     updateCostChart();
     updateUsageUI();
+    
+    // Initialize all features
+    initializeTCO();
+    
+    // Initialize checklist if there are saved tasks
+    if (appState.checklist && appState.checklist.tasks && appState.checklist.tasks.length > 0) {
+        renderChecklist();
+    }
 
     // If user returned from Stripe checkout, sync subscription immediately
     handlePostCheckoutReturn().catch(() => {});
