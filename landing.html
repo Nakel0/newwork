@@ -386,128 +386,145 @@
         }
 
         function handleSignup(e) {
-            e.preventDefault();
-            e.stopPropagation();
-            
-            try {
-                const form = e.target;
-                const inputs = form.querySelectorAll('input');
-                
-                const userData = {
-                    name: inputs[0].value.trim(),
-                    email: inputs[1].value.trim(),
-                    password: inputs[2].value,
-                    company: inputs[3].value.trim(),
-                    plan: document.getElementById('selectedPlan').value
-                };
-                
-                // Validate
-                if (!userData.name || !userData.email || !userData.password || !userData.company) {
-                    alert('Please fill in all fields');
-                    return;
-                }
-                
-                if (userData.password.length < 8) {
-                    alert('Password must be at least 8 characters');
-                    return;
-                }
-                
-                // Save to localStorage (this is a frontend-only app, no backend needed)
-                try {
-                    localStorage.setItem('user', JSON.stringify(userData));
-                    localStorage.setItem('subscription', JSON.stringify({
-                        plan: userData.plan,
-                        status: 'active',
-                        startDate: new Date().toISOString(),
-                        trialEnds: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString()
-                    }));
-                    
-                    // Verify it was saved
-                    const savedUser = localStorage.getItem('user');
-                    const savedSub = localStorage.getItem('subscription');
-                    
-                    if (!savedUser || !savedSub) {
-                        throw new Error('Failed to save to localStorage');
-                    }
-                    
-                    console.log('User data saved:', { user: savedUser, subscription: savedSub });
-                    
-                    // Show success message
-                    const submitBtn = form.querySelector('button[type="submit"]');
-                    if (submitBtn) {
-                        submitBtn.textContent = 'Creating Account...';
-                        submitBtn.disabled = true;
-                    }
-                    
-                    // Small delay for UX, then redirect
-                    setTimeout(() => {
-                        console.log('Redirecting to index.html...');
-                        window.location.href = 'index.html';
-                    }, 500);
-                } catch (storageError) {
-                    console.error('localStorage error:', storageError);
-                    alert('Error saving account. Please check if localStorage is enabled in your browser.');
-                }
-            } catch (error) {
-                console.error('Signup error:', error);
-                alert('Signup successful! Redirecting to app...');
-                setTimeout(() => {
-                    window.location.href = 'index.html';
-                }, 100);
+            if (e) {
+                e.preventDefault();
+                e.stopPropagation();
             }
+            
+            console.log('handleSignup called');
+            
+            const form = document.getElementById('signupForm');
+            if (!form) {
+                console.error('Signup form not found');
+                alert('Form not found. Please refresh the page.');
+                return false;
+            }
+            
+            const nameInput = form.querySelector('input[type="text"]');
+            const emailInput = form.querySelector('input[type="email"]');
+            const passwordInput = form.querySelector('input[type="password"]');
+            const companyInput = form.querySelectorAll('input[type="text"]')[1];
+            const planSelect = document.getElementById('selectedPlan');
+            
+            if (!nameInput || !emailInput || !passwordInput || !companyInput || !planSelect) {
+                console.error('Form inputs not found');
+                alert('Form error. Please refresh the page.');
+                return false;
+            }
+            
+            const userData = {
+                name: nameInput.value.trim(),
+                email: emailInput.value.trim(),
+                password: passwordInput.value,
+                company: companyInput.value.trim(),
+                plan: planSelect.value
+            };
+            
+            console.log('User data:', userData);
+            
+            // Validate
+            if (!userData.name || !userData.email || !userData.password || !userData.company) {
+                alert('Please fill in all fields');
+                return false;
+            }
+            
+            if (userData.password.length < 8) {
+                alert('Password must be at least 8 characters');
+                return false;
+            }
+            
+            // Save to localStorage
+            localStorage.setItem('user', JSON.stringify(userData));
+            localStorage.setItem('subscription', JSON.stringify({
+                plan: userData.plan,
+                status: 'active',
+                startDate: new Date().toISOString(),
+                trialEnds: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString()
+            }));
+            
+            console.log('Data saved to localStorage');
+            console.log('User:', localStorage.getItem('user'));
+            console.log('Subscription:', localStorage.getItem('subscription'));
+            
+            // Show feedback
+            const submitBtn = form.querySelector('button[type="submit"]');
+            if (submitBtn) {
+                submitBtn.textContent = 'Account Created! Redirecting...';
+                submitBtn.disabled = true;
+            }
+            
+            // Redirect
+            setTimeout(() => {
+                window.location.href = 'index.html';
+            }, 800);
             
             return false;
         }
 
         function handleLogin(e) {
-            e.preventDefault();
-            e.stopPropagation();
+            if (e) {
+                e.preventDefault();
+                e.stopPropagation();
+            }
             
+            console.log('handleLogin called');
+            
+            const form = document.getElementById('loginForm');
+            if (!form) {
+                console.error('Login form not found');
+                alert('Form not found. Please refresh the page.');
+                return false;
+            }
+            
+            const emailInput = form.querySelector('input[type="email"]');
+            const passwordInput = form.querySelector('input[type="password"]');
+            
+            if (!emailInput || !passwordInput) {
+                console.error('Login inputs not found');
+                alert('Form error. Please refresh the page.');
+                return false;
+            }
+            
+            const email = emailInput.value.trim();
+            const password = passwordInput.value;
+            
+            if (!email || !password) {
+                alert('Please enter both email and password');
+                return false;
+            }
+            
+            // Get user from localStorage
+            const userStr = localStorage.getItem('user');
+            if (!userStr) {
+                alert('No account found. Please sign up first.');
+                return false;
+            }
+            
+            let user;
             try {
-                const form = e.target;
-                const email = form.querySelector('input[type="email"]').value.trim();
-                const password = form.querySelector('input[type="password"]').value;
-                
-                if (!email || !password) {
-                    alert('Please enter both email and password');
-                    return;
+                user = JSON.parse(userStr);
+            } catch (parseError) {
+                console.error('Error parsing user data:', parseError);
+                alert('Error reading account data. Please sign up again.');
+                return false;
+            }
+            
+            console.log('Stored user email:', user.email);
+            console.log('Entered email:', email);
+            
+            if (user && user.email && user.email.toLowerCase() === email.toLowerCase()) {
+                const submitBtn = form.querySelector('button[type="submit"]');
+                if (submitBtn) {
+                    submitBtn.textContent = 'Signing in...';
+                    submitBtn.disabled = true;
                 }
                 
-                // This is a frontend-only app - no backend needed
-                const userStr = localStorage.getItem('user');
-                if (!userStr) {
-                    alert('No account found. Please sign up first.');
-                    return;
-                }
-                
-                let user;
-                try {
-                    user = JSON.parse(userStr);
-                } catch (parseError) {
-                    console.error('Error parsing user data:', parseError);
-                    alert('Error reading account data. Please sign up again.');
-                    return;
-                }
-                
-                if (user && user.email && user.email.toLowerCase() === email.toLowerCase()) {
-                    // Password check (in production, this would be hashed)
-                    // For demo, we just check if email matches
-                    const submitBtn = form.querySelector('button[type="submit"]');
-                    if (submitBtn) {
-                        submitBtn.textContent = 'Signing in...';
-                        submitBtn.disabled = true;
-                    }
-                    
-                    console.log('Login successful, redirecting...');
-                    setTimeout(() => {
-                        window.location.href = 'index.html';
-                    }, 300);
-                } else {
-                    alert('Invalid credentials. Please sign up first or check your email.');
-                }
-            } catch (error) {
-                console.error('Login error:', error);
-                alert('Login error. Please try again.');
+                console.log('Login successful, redirecting...');
+                setTimeout(() => {
+                    window.location.href = 'index.html';
+                }, 500);
+            } else {
+                alert('Invalid email. Please check your email or sign up first.');
             }
             
             return false;

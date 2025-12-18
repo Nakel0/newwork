@@ -1255,8 +1255,20 @@ document.getElementById('exportBtn').addEventListener('click', () => generateRep
 
 // Initialize
 window.addEventListener('DOMContentLoaded', () => {
+    console.log('Page loaded, checking authentication...');
+    console.log('localStorage user:', localStorage.getItem('user'));
+    console.log('localStorage subscription:', localStorage.getItem('subscription'));
+    
     // Check authentication (localStorage-based)
-    if (!checkAuth()) return;
+    const isAuthenticated = checkAuth();
+    console.log('Authentication result:', isAuthenticated);
+    
+    if (!isAuthenticated) {
+        console.log('Not authenticated, redirecting to landing page');
+        return;
+    }
+    
+    console.log('User authenticated:', appState.user);
     
     // Initialize user UI
     if (appState.user) {
