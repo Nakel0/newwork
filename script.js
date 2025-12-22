@@ -262,13 +262,19 @@ async function upgradePlan(planName) {
             body: JSON.stringify({ plan: planName })
         });
         if (url) {
+            closeUpgradeModal();
             window.location.href = url;
         } else {
             showToast('Checkout unavailable. Please try again later.', 'error');
         }
     } catch (e) {
         console.error('Checkout error:', e);
-        showToast('Checkout unavailable. Please confirm Stripe is configured.', 'error');
+        const msg = String(e?.message || '');
+        if (msg.includes('missing_stripe_price_id') || msg.includes('http_500')) {
+            showToast('Checkout is not configured yet (missing Stripe price IDs).', 'error');
+        } else {
+            showToast('Checkout unavailable. Please confirm Stripe is configured.', 'error');
+        }
     }
 }
 
@@ -279,7 +285,23 @@ async function openBillingPortal() {
         else showToast('Billing portal unavailable.', 'error');
     } catch (e) {
         console.error('Billing portal error:', e);
+        const msg = String(e?.message || '');
+        if (msg.includes('no_stripe_customer')) {
+            // Free users (or users who never checked out) won't have a portal yet.
+            showUpgradeModal();
+            return;
+        }
         showToast('Billing portal unavailable. Please confirm Stripe is configured.', 'error');
+    }
+}
+
+async function syncSubscription({ toast = true } = {}) {
+    try {
+        await refreshMe({ loadAppState: false });
+        if (toast) showToast('Subscription synced.', 'success');
+    } catch (e) {
+        console.error('Sync error:', e);
+        if (toast) showToast('Sync failed. Please try again.', 'error');
     }
 }
 
@@ -318,6 +340,9 @@ async function handlePostCheckoutReturn() {
     if (window.location.hash.includes('?')) {
         window.location.hash = '#billing';
     }
+
+    // Final UI sync (plan/usage) after polling
+    syncSubscription({ toast: false }).catch(() => {});
 }
 
 // Show upgrade modal
