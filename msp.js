@@ -61,6 +61,8 @@ const state = {
   projects: [],
   selectedProjectId: null,
   proposals: [],
+  selectedProposalId: null,
+  selectedProposal: null,
   brandLogoDataUrl: undefined
 };
 
@@ -204,19 +206,98 @@ function renderProposals() {
   for (const pr of state.proposals) {
     const row = document.createElement('div');
     row.className = 'msp-item';
+    const sentMeta = pr.sentAt ? ` • Sent: ${new Date(pr.sentAt).toLocaleDateString()}` : '';
     row.innerHTML = `
       <div>
         <div><strong>v${pr.version}</strong> — ${pr.title}</div>
-        <div class="meta">Status: ${String(pr.status || '').replaceAll('_', ' ')}</div>
+        <div class="meta">Status: ${String(pr.status || '').replaceAll('_', ' ')}${sentMeta}</div>
       </div>
       <div class="msp-actions">
+        <button class="msp-btn secondary" data-edit="${pr.id}">
+          <i class="fas fa-pen-to-square"></i> Edit
+        </button>
         <a class="msp-btn secondary" href="/api/msp/proposals/${pr.id}/pdf" target="_blank" rel="noopener">
           <i class="fas fa-file-pdf"></i> PDF
         </a>
+        <button class="msp-btn" data-send="${pr.id}" ${pr.status === 'sent' ? 'disabled' : ''}>
+          <i class="fas fa-paper-plane"></i> Send
+        </button>
       </div>
     `;
+    row.querySelector('[data-edit]')?.addEventListener('click', () => {
+      selectProposal(pr.id);
+    });
+    row.querySelector('[data-send]')?.addEventListener('click', () => {
+      sendProposal(pr.id).catch(() => {});
+    });
     list.appendChild(row);
   }
+}
+
+function normalizeProposalData(raw) {
+  const d = (raw && typeof raw === 'object') ? raw : {};
+  const pricing = (d.pricing && typeof d.pricing === 'object') ? d.pricing : {};
+  return {
+    overview: typeof d.overview === 'string' ? d.overview : '',
+    scope: Array.isArray(d.scope) ? d.scope : [],
+    pricing: {
+      currency: typeof pricing.currency === 'string' ? pricing.currency : '$',
+      oneTime: typeof pricing.oneTime === 'number' ? pricing.oneTime : undefined,
+      monthly: typeof pricing.monthly === 'number' ? pricing.monthly : undefined,
+      notes: typeof pricing.notes === 'string' ? pricing.notes : undefined
+    },
+    assumptions: Array.isArray(d.assumptions) ? d.assumptions : [],
+    nextSteps: Array.isArray(d.nextSteps) ? d.nextSteps : []
+  };
+}
+
+function setSelectedProposalLabel() {
+  const el = $('selectedProposalLabel');
+  if (!el) return;
+  if (!state.selectedProposal) {
+    el.textContent = 'None';
+    return;
+  }
+  el.textContent = `v${state.selectedProposal.version} — ${state.selectedProposal.title}`;
+}
+
+function setEditorButtonsEnabled() {
+  const hasSelected = !!state.selectedProposalId;
+  $('saveNewVersionBtn').disabled = !hasSelected;
+  $('clearSelectedProposalBtn').disabled = !hasSelected;
+  // Only owner/admin can send
+  const canSend = hasSelected && (state.selectedOrgRole === 'owner' || state.selectedOrgRole === 'admin');
+  $('sendProposalBtn').disabled = !canSend || state.selectedProposal?.status === 'sent';
+}
+
+function selectProposal(proposalId) {
+  const pr = state.proposals.find((p) => p.id === proposalId) || null;
+  state.selectedProposalId = pr?.id || null;
+  state.selectedProposal = pr;
+  setSelectedProposalLabel();
+  setEditorButtonsEnabled();
+
+  if (!pr) return;
+
+  $('proposalTitle').value = pr.title || '';
+
+  const d = normalizeProposalData(pr.data);
+  $('proposalOverview').value = d.overview;
+  $('proposalScope').value = (d.scope || []).join('\n');
+  $('pricingCurrency').value = d.pricing.currency || '$';
+  $('pricingOneTime').value = typeof d.pricing.oneTime === 'number' ? String(d.pricing.oneTime) : '';
+  $('pricingMonthly').value = typeof d.pricing.monthly === 'number' ? String(d.pricing.monthly) : '';
+  $('proposalAssumptions').value = (d.assumptions || []).join('\n');
+  $('proposalNextSteps').value = (d.nextSteps || []).join('\n');
+
+  showToast('Loaded proposal into editor. Edit fields and “Save as new version”.');
+}
+
+function clearSelectedProposal() {
+  state.selectedProposalId = null;
+  state.selectedProposal = null;
+  setSelectedProposalLabel();
+  setEditorButtonsEnabled();
 }
 
 async function loadMe() {
@@ -234,6 +315,7 @@ async function loadOrgs() {
   $('orgRole').textContent = state.selectedOrgRole || '-';
   renderOrgSelect();
   renderBrandingForm();
+  setEditorButtonsEnabled();
 }
 
 async function loadClients() {
@@ -271,6 +353,13 @@ async function loadProposals() {
   }
   const res = await api(`/api/msp/proposals?projectId=${encodeURIComponent(projectId)}`);
   state.proposals = res.proposals || [];
+  if (state.selectedProposalId && !state.proposals.some((p) => p.id === state.selectedProposalId)) {
+    clearSelectedProposal();
+  } else if (state.selectedProposalId) {
+    state.selectedProposal = state.proposals.find((p) => p.id === state.selectedProposalId) || null;
+    setSelectedProposalLabel();
+    setEditorButtonsEnabled();
+  }
   renderProposals();
 }
 
@@ -443,6 +532,66 @@ async function onCreateProposal() {
   }
 }
 
+async function onSaveAsNewVersion() {
+  if (!state.selectedProposalId) return showToast('Select a proposal (Edit) first.');
+
+  const title = $('proposalTitle').value.trim() || (state.selectedProposal?.title || 'Proposal');
+
+  const pricingOneTime = $('pricingOneTime').value.trim();
+  const pricingMonthly = $('pricingMonthly').value.trim();
+  const oneTime = pricingOneTime ? Number(pricingOneTime) : undefined;
+  const monthly = pricingMonthly ? Number(pricingMonthly) : undefined;
+
+  const data = {
+    overview: $('proposalOverview').value.trim(),
+    scope: splitLines($('proposalScope').value),
+    pricing: {
+      currency: $('pricingCurrency').value.trim() || '$',
+      oneTime: Number.isFinite(oneTime) ? oneTime : undefined,
+      monthly: Number.isFinite(monthly) ? monthly : undefined
+    },
+    assumptions: splitLines($('proposalAssumptions').value),
+    nextSteps: splitLines($('proposalNextSteps').value)
+  };
+
+  setDisabled($('saveNewVersionBtn'), true);
+  try {
+    const r = await api(`/api/msp/proposals/${encodeURIComponent(state.selectedProposalId)}/versions`, {
+      method: 'POST',
+      body: JSON.stringify({ title, data })
+    });
+    showToast('New version created.');
+    await loadProposals();
+    if (r?.proposal?.id) selectProposal(r.proposal.id);
+  } catch (e) {
+    console.error(e);
+    showToast(`Failed to create new version: ${e.message}`);
+  } finally {
+    setDisabled($('saveNewVersionBtn'), false);
+    setEditorButtonsEnabled();
+  }
+}
+
+async function sendProposal(proposalId) {
+  const id = proposalId || state.selectedProposalId;
+  if (!id) return showToast('Select a proposal to send.');
+  if (!confirm('Mark this proposal as sent?')) return;
+
+  setDisabled($('sendProposalBtn'), true);
+  try {
+    await api(`/api/msp/proposals/${encodeURIComponent(id)}/send`, { method: 'POST', body: '{}' });
+    showToast('Proposal marked as sent.');
+    await loadProposals();
+  } catch (e) {
+    console.error(e);
+    if (e.message === 'forbidden') showToast('Only org owners/admins can send proposals.');
+    else showToast(`Send failed: ${e.message}`);
+    throw e;
+  } finally {
+    setEditorButtonsEnabled();
+  }
+}
+
 async function onLogout() {
   setDisabled($('logoutBtn'), true);
   try {
@@ -494,11 +643,15 @@ async function boot() {
 
   $('projectSelect').addEventListener('change', () => loadProposals().catch(() => {}));
   $('createProposalBtn').addEventListener('click', () => onCreateProposal().catch(() => {}));
+  $('saveNewVersionBtn').addEventListener('click', () => onSaveAsNewVersion().catch(() => {}));
+  $('sendProposalBtn').addEventListener('click', () => sendProposal().catch(() => {}));
+  $('clearSelectedProposalBtn').addEventListener('click', () => clearSelectedProposal());
   $('refreshProposalsBtn').addEventListener('click', () => loadProposals().catch(() => {}));
 
   $('logoutBtn').addEventListener('click', () => onLogout().catch(() => {}));
 
   await onOrgChanged();
+  clearSelectedProposal();
   showToast('MSP dashboard ready.');
 }
 

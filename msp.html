@@ -142,9 +142,21 @@
           <select class="msp-select" id="projectSelect"></select>
           <button class="msp-btn secondary fixed" id="refreshProposalsBtn"><i class="fas fa-rotate"></i> Refresh</button>
         </div>
+        <div class="msp-muted" style="margin-top:0.5rem;">
+          Selected proposal: <strong id="selectedProposalLabel">None</strong>
+        </div>
         <div class="msp-row" style="margin-top:0.75rem;">
           <input class="msp-input" id="proposalTitle" placeholder="Proposal title (e.g., Cloud Migration Proposal)" />
-          <button class="msp-btn fixed" id="createProposalBtn"><i class="fas fa-plus"></i> Create Proposal</button>
+          <button class="msp-btn fixed" id="createProposalBtn"><i class="fas fa-plus"></i> Create v1</button>
+          <button class="msp-btn secondary fixed" id="saveNewVersionBtn" title="Creates a new version (v2, v3...) from the selected proposal" disabled>
+            <i class="fas fa-code-branch"></i> Save as new version
+          </button>
+          <button class="msp-btn fixed" id="sendProposalBtn" title="Marks selected proposal as sent" disabled>
+            <i class="fas fa-paper-plane"></i> Send
+          </button>
+          <button class="msp-btn secondary fixed" id="clearSelectedProposalBtn" title="Clear selection" disabled>
+            <i class="fas fa-xmark"></i> Clear
+          </button>
         </div>
         <div class="msp-muted" style="margin-top:0.5rem;">Proposal content (simple fields used by the PDF generator):</div>
         <div class="msp-row" style="margin-top:0.5rem;">

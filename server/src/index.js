@@ -736,10 +736,80 @@ app.post('/api/msp/proposals', requireAuth, async (req, res) => {
       projectId: input.projectId,
       version: nextVersion,
       title: input.title,
+      status: 'draft',
+      sentAt: null,
       data: input.data ?? {}
     }
   });
   return res.json({ proposal });
+});
+
+const CreateProposalVersionSchema = z.object({
+  title: z.string().min(1).max(200).optional(),
+  data: z.record(z.any()).optional()
+});
+
+// Edit by saving a new version (v2, v3...) from an existing proposal
+app.post('/api/msp/proposals/:proposalId/versions', requireAuth, async (req, res) => {
+  const prisma = getPrisma();
+  const proposalId = req.params.proposalId;
+
+  let input;
+  try {
+    input = CreateProposalVersionSchema.parse(req.body);
+  } catch {
+    return res.status(400).json({ error: 'invalid_request' });
+  }
+
+  const base = await prisma.proposal.findUnique({ where: { id: proposalId } });
+  if (!base) return res.status(404).json({ error: 'not_found' });
+
+  const membership = await requireOrgMember(prisma, { userId: req.auth.userId, organizationId: base.organizationId });
+  if (!membership) return res.status(404).json({ error: 'not_found' });
+
+  const last = await prisma.proposal.findFirst({
+    where: { projectId: base.projectId },
+    orderBy: { version: 'desc' },
+    select: { version: true }
+  });
+  const nextVersion = (last?.version || 0) + 1;
+
+  const created = await prisma.proposal.create({
+    data: {
+      organizationId: base.organizationId,
+      projectId: base.projectId,
+      version: nextVersion,
+      title: input.title ?? base.title,
+      status: 'draft',
+      sentAt: null,
+      data: input.data ?? (base.data && typeof base.data === 'object' ? base.data : {})
+    }
+  });
+
+  return res.json({ proposal: created });
+});
+
+// Send action (marks proposal as sent + stores sentAt)
+app.post('/api/msp/proposals/:proposalId/send', requireAuth, async (req, res) => {
+  const prisma = getPrisma();
+  const proposalId = req.params.proposalId;
+
+  const proposal = await prisma.proposal.findUnique({ where: { id: proposalId } });
+  if (!proposal) return res.status(404).json({ error: 'not_found' });
+
+  const membership = await requireOrgMember(prisma, { userId: req.auth.userId, organizationId: proposal.organizationId });
+  if (!membership) return res.status(404).json({ error: 'not_found' });
+  if (!requireOrgRole(membership, ['owner', 'admin'])) return res.status(403).json({ error: 'forbidden' });
+
+  const updated = await prisma.proposal.update({
+    where: { id: proposalId },
+    data: {
+      status: 'sent',
+      sentAt: proposal.sentAt ?? new Date()
+    }
+  });
+
+  return res.json({ proposal: updated });
 });
 
 async function renderProposalPdf({ organization, client, project, proposal }) {
@@ -782,7 +852,8 @@ async function renderProposalPdf({ organization, client, project, proposal }) {
   doc.fontSize(11).font('Helvetica');
   doc.text(`Client: ${client.name}`, 50, 150);
   doc.text(`Project: ${project.name}`, 50, 168);
-  doc.text(`Version: v${proposal.version} • Status: ${proposal.status}`, 50, 186);
+  const sentLine = proposal.sentAt ? ` • Sent: ${new Date(proposal.sentAt).toLocaleDateString()}` : '';
+  doc.text(`Version: v${proposal.version} • Status: ${proposal.status}${sentLine}`, 50, 186);
   doc.text(`Generated: ${new Date().toLocaleDateString()}`, 50, 204);
 
   let y = 235;

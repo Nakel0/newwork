@@ -225,6 +225,7 @@ model Proposal {
   version        Int
   title          String
   status         ProposalStatus @default(draft)
+  sentAt         DateTime?
 
   // Proposal snapshot used for PDF generation (scope, pricing, timeline, assumptions, etc.)
   data           Json          @default("{}")
