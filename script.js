@@ -938,47 +938,58 @@ function updateProviderRecommendation() {
 
 // Report Generation
 function generateReport(type = 'full') {
-    // Check report limit
-    if (!checkUsageLimit('maxReportsPerMonth', 'reportsThisMonth')) {
-        const plan = getCurrentPlan();
-        showFeatureLock(`Your ${plan.name} plan allows ${plan.limits.maxReportsPerMonth} report(s) per month. Please upgrade for unlimited reports.`);
-        return;
-    }
-    
-    // Check PDF export permission
-    const plan = getCurrentPlan();
-    const canExportPDF = plan.limits.pdfExport;
-    
-    const reportContent = generateReportContent(type);
-    const preview = document.getElementById('reportPreview');
-    
-    let downloadButton = '';
-    if (canExportPDF) {
-        downloadButton = `<button class="btn-download" onclick="downloadReport('${type}')">
-            <i class="fas fa-download"></i> Download PDF
-        </button>`;
-            } else {
-        downloadButton = `<button class="btn-download disabled" onclick="showUpgradeModal()" title="Upgrade to export PDF">
-            <i class="fas fa-lock"></i> PDF Export (Upgrade Required)
-        </button>`;
-    }
-    
-    preview.innerHTML = `
-        <div class="report-content">
-            <div class="report-header">
-                <h2>${getReportTitle(type)}</h2>
-                ${downloadButton}
-            </div>
-            ${reportContent}
-        </div>
-    `;
-    
-    // Increment report usage
-    appState.usage.reportsThisMonth++;
-    updateUsageUI();
-    saveProgress();
-    
-    showToast('Report generated successfully!');
+    // Server-enforced report limit (cannot be bypassed client-side)
+    api('/api/usage/report', { method: 'POST', body: JSON.stringify({ type }) })
+        .then((r) => {
+            if (r?.usage) {
+                appState.usage = { ...appState.usage, ...r.usage };
+                updateUsageUI();
+            }
+        })
+        .then(() => {
+            // Check PDF export permission (client UX gating)
+            const plan = getCurrentPlan();
+            const canExportPDF = plan.limits.pdfExport;
+            
+            const reportContent = generateReportContent(type);
+            const preview = document.getElementById('reportPreview');
+            
+            let downloadButton = '';
+            if (canExportPDF) {
+                downloadButton = `<button class="btn-download" onclick="downloadReport('${type}')">
+                    <i class="fas fa-download"></i> Download PDF
+                </button>`;
+                    } else {
+                downloadButton = `<button class="btn-download disabled" onclick="showUpgradeModal()" title="Upgrade to export PDF">
+                    <i class="fas fa-lock"></i> PDF Export (Upgrade Required)
+                </button>`;
+            }
+            
+            preview.innerHTML = `
+                <div class="report-content">
+                    <div class="report-header">
+                        <h2>${getReportTitle(type)}</h2>
+                        ${downloadButton}
+                    </div>
+                    ${reportContent}
+                </div>
+            `;
+            
+            // Persist state (usage already incremented on server)
+            saveProgress();
+            
+            showToast('Report generated successfully!');
+        })
+        .catch((e) => {
+            console.error('Report usage error:', e);
+            const plan = getCurrentPlan();
+            // If the server says over-limit, lock it
+            if (String(e?.message || '').includes('limit_reports')) {
+                showFeatureLock(`Your ${plan.name} plan allows ${plan.limits.maxReportsPerMonth} report(s) per month. Please upgrade for unlimited reports.`);
+                return;
+            }
+            showToast('Unable to generate report right now. Please try again.', 'error');
+        });
 }
 
 function generateReportContent(type) {
@@ -1109,13 +1120,7 @@ function saveProgress(options = {}) {
     api('/api/app/state', {
         method: 'PUT',
         body: JSON.stringify({
-            data,
-            usage: {
-                servers: appState.usage.servers,
-                plans: appState.usage.plans,
-                reportsThisMonth: appState.usage.reportsThisMonth,
-                lastReportAt: appState.usage.lastReportAt || null
-            }
+            data
         })
     })
         .then(() => {

@@ -24,6 +24,24 @@ app.set('trust proxy', 1);
 // Validate env at startup (throws with readable errors)
 const env = getEnv();
 
+function getPlanLimits(plan) {
+  // -1 means unlimited
+  if (plan === 'starter') return { maxServers: 20, maxPlans: 3, maxReportsPerMonth: 5 };
+  if (plan === 'pro') return { maxServers: 100, maxPlans: -1, maxReportsPerMonth: -1 };
+  if (plan === 'enterprise') return { maxServers: -1, maxPlans: -1, maxReportsPerMonth: -1 };
+  return { maxServers: 5, maxPlans: 1, maxReportsPerMonth: 1 }; // free (default)
+}
+
+function isUnderLimit(limit, currentValue) {
+  if (limit === -1) return true;
+  return currentValue < limit;
+}
+
+function isWithinLimit(limit, value) {
+  if (limit === -1) return true;
+  return value <= limit;
+}
+
 app.get('/healthz', (_req, res) => {
   res.json({ ok: true });
 });
@@ -331,15 +349,7 @@ app.get('/api/me', requireAuth, async (req, res) => {
 
 // Save app state + usage (single endpoint so the client stays simple)
 const SaveAppStateSchema = z.object({
-  data: z.record(z.any()),
-  usage: z
-    .object({
-      servers: z.number().int().min(0).optional(),
-      plans: z.number().int().min(0).optional(),
-      reportsThisMonth: z.number().int().min(0).optional(),
-      lastReportAt: z.string().datetime().nullable().optional()
-    })
-    .optional()
+  data: z.record(z.any())
 });
 
 app.put('/api/app/state', requireAuth, async (req, res) => {
@@ -359,28 +369,76 @@ app.put('/api/app/state', requireAuth, async (req, res) => {
     update: { data: input.data }
   });
 
+  // Server-enforced usage (do not trust client)
   const ym = getYearMonth();
-  if (input.usage) {
-    await prisma.usageMonth.upsert({
-      where: { userId_yearMonth: { userId, yearMonth: ym } },
-      create: {
-        userId,
-        yearMonth: ym,
-        servers: input.usage.servers ?? 0,
-        plans: input.usage.plans ?? 0,
-        reportsThisMonth: input.usage.reportsThisMonth ?? 0,
-        lastReportAt: input.usage.lastReportAt ? new Date(input.usage.lastReportAt) : null
-      },
-      update: {
-        servers: input.usage.servers,
-        plans: input.usage.plans,
-        reportsThisMonth: input.usage.reportsThisMonth,
-        lastReportAt: input.usage.lastReportAt ? new Date(input.usage.lastReportAt) : undefined
-      }
-    });
+  const subscription = await prisma.subscription.findUnique({ where: { userId } });
+  const plan = subscription?.plan || 'free';
+  const limits = getPlanLimits(plan);
+
+  const a = (input.data && typeof input.data === 'object' ? input.data.assessment : null) || {};
+  const p = (input.data && typeof input.data === 'object' ? input.data.planning : null) || {};
+
+  const physical = Number.isFinite(a?.physicalServers) ? Number(a.physicalServers) : 0;
+  const virtual = Number.isFinite(a?.virtualMachines) ? Number(a.virtualMachines) : 0;
+  const servers = Math.max(0, Math.trunc(physical) + Math.trunc(virtual));
+
+  const hasPlan = !!(p && typeof p === 'object' && p.cloudProvider && p.migrationStrategy);
+  const plans = hasPlan ? 1 : 0;
+
+  if (!isWithinLimit(limits.maxServers, servers)) {
+    return res.status(403).json({ error: 'limit_servers', limit: limits.maxServers });
+  }
+  if (!isWithinLimit(limits.maxPlans, plans)) {
+    return res.status(403).json({ error: 'limit_plans', limit: limits.maxPlans });
   }
 
+  await prisma.usageMonth.upsert({
+    where: { userId_yearMonth: { userId, yearMonth: ym } },
+    create: { userId, yearMonth: ym, servers, plans, reportsThisMonth: 0 },
+    update: { servers, plans }
+  });
+
   return res.json({ ok: true });
+});
+
+// Server-enforced report usage counter (increment)
+app.post('/api/usage/report', requireAuth, async (req, res) => {
+  const prisma = getPrisma();
+  const { userId } = req.auth;
+
+  const ym = getYearMonth();
+
+  const subscription = await prisma.subscription.findUnique({ where: { userId } });
+  const plan = subscription?.plan || 'free';
+  const limits = getPlanLimits(plan);
+
+  const usage = await prisma.usageMonth.upsert({
+    where: { userId_yearMonth: { userId, yearMonth: ym } },
+    create: { userId, yearMonth: ym, servers: 0, plans: 0, reportsThisMonth: 0 },
+    update: {}
+  });
+
+  if (!isUnderLimit(limits.maxReportsPerMonth, usage.reportsThisMonth)) {
+    return res.status(403).json({ error: 'limit_reports', limit: limits.maxReportsPerMonth });
+  }
+
+  const updated = await prisma.usageMonth.update({
+    where: { userId_yearMonth: { userId, yearMonth: ym } },
+    data: {
+      reportsThisMonth: { increment: 1 },
+      lastReportAt: new Date()
+    }
+  });
+
+  return res.json({
+    usage: {
+      yearMonth: updated.yearMonth,
+      servers: updated.servers,
+      plans: updated.plans,
+      reportsThisMonth: updated.reportsThisMonth,
+      lastReportAt: updated.lastReportAt
+    }
+  });
 });
 
 // -------------------------
