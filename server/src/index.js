@@ -4,6 +4,7 @@ import { fileURLToPath } from 'node:url';
 import cookieParser from 'cookie-parser';
 import dotenv from 'dotenv';
 import express from 'express';
+import PDFDocument from 'pdfkit';
 import { z } from 'zod';
 
 import { parseLogin, parseSignup, createSessionToken, getCookieOptions, hashPassword, verifyPassword } from './auth.js';
@@ -40,6 +41,29 @@ function isUnderLimit(limit, currentValue) {
 function isWithinLimit(limit, value) {
   if (limit === -1) return true;
   return value <= limit;
+}
+
+function isHexColor(value) {
+  return typeof value === 'string' && /^#([0-9a-fA-F]{6}|[0-9a-fA-F]{3})$/.test(value);
+}
+
+function safePrimaryColor(value) {
+  return isHexColor(value) ? value : '#667eea';
+}
+
+function parseDataUrlImage(dataUrl) {
+  // Supports: data:image/png;base64,....
+  if (typeof dataUrl !== 'string') return null;
+  const m = dataUrl.match(/^data:(image\/png|image\/jpeg);base64,(.+)$/);
+  if (!m) return null;
+  const mime = m[1];
+  const b64 = m[2];
+  try {
+    const buf = Buffer.from(b64, 'base64');
+    return { mime, buf };
+  } catch {
+    return null;
+  }
 }
 
 app.get('/healthz', (_req, res) => {
@@ -439,6 +463,470 @@ app.post('/api/usage/report', requireAuth, async (req, res) => {
       lastReportAt: updated.lastReportAt
     }
   });
+});
+
+// -------------------------
+// MSP: Organizations / Clients / Projects / Proposals
+// -------------------------
+async function requireOrgMember(prisma, { userId, organizationId }) {
+  const membership = await prisma.organizationMember.findUnique({
+    where: { organizationId_userId: { organizationId, userId } },
+    include: { organization: true }
+  });
+  if (!membership) return null;
+  return membership;
+}
+
+function requireOrgRole(membership, allowedRoles) {
+  if (!membership) return false;
+  return allowedRoles.includes(membership.role);
+}
+
+const CreateOrgSchema = z.object({
+  name: z.string().min(1).max(200),
+  slug: z.string().min(2).max(100).optional(),
+  brandName: z.string().min(1).max(200).optional(),
+  brandPrimaryColor: z.string().optional(),
+  brandLogoDataUrl: z.string().optional(),
+  brandWebsite: z.string().url().optional(),
+  brandEmail: z.string().email().optional()
+});
+
+app.get('/api/msp/orgs', requireAuth, async (req, res) => {
+  const prisma = getPrisma();
+  const orgs = await prisma.organizationMember.findMany({
+    where: { userId: req.auth.userId },
+    include: { organization: true },
+    orderBy: { createdAt: 'desc' }
+  });
+  return res.json({
+    organizations: orgs.map((m) => ({
+      id: m.organization.id,
+      name: m.organization.name,
+      slug: m.organization.slug,
+      role: m.role,
+      brandName: m.organization.brandName,
+      brandPrimaryColor: m.organization.brandPrimaryColor,
+      brandWebsite: m.organization.brandWebsite,
+      brandEmail: m.organization.brandEmail
+    }))
+  });
+});
+
+app.post('/api/msp/orgs', requireAuth, async (req, res) => {
+  const prisma = getPrisma();
+  let input;
+  try {
+    input = CreateOrgSchema.parse(req.body);
+  } catch {
+    return res.status(400).json({ error: 'invalid_request' });
+  }
+
+  const org = await prisma.organization.create({
+    data: {
+      name: input.name,
+      slug: input.slug,
+      brandName: input.brandName,
+      brandPrimaryColor: safePrimaryColor(input.brandPrimaryColor),
+      brandLogoDataUrl: input.brandLogoDataUrl,
+      brandWebsite: input.brandWebsite,
+      brandEmail: input.brandEmail,
+      members: { create: { userId: req.auth.userId, role: 'owner' } }
+    }
+  });
+
+  return res.json({ organization: org });
+});
+
+const UpdateBrandingSchema = z.object({
+  brandName: z.string().min(1).max(200).nullable().optional(),
+  brandPrimaryColor: z.string().nullable().optional(),
+  brandLogoDataUrl: z.string().nullable().optional(),
+  brandWebsite: z.string().url().nullable().optional(),
+  brandEmail: z.string().email().nullable().optional()
+});
+
+app.put('/api/msp/orgs/:orgId/branding', requireAuth, async (req, res) => {
+  const prisma = getPrisma();
+  const organizationId = req.params.orgId;
+  const membership = await requireOrgMember(prisma, { userId: req.auth.userId, organizationId });
+  if (!membership) return res.status(404).json({ error: 'not_found' });
+  if (!requireOrgRole(membership, ['owner', 'admin'])) return res.status(403).json({ error: 'forbidden' });
+
+  let input;
+  try {
+    input = UpdateBrandingSchema.parse(req.body);
+  } catch {
+    return res.status(400).json({ error: 'invalid_request' });
+  }
+
+  const updated = await prisma.organization.update({
+    where: { id: organizationId },
+    data: {
+      brandName: input.brandName ?? undefined,
+      brandPrimaryColor:
+        input.brandPrimaryColor === null ? null : input.brandPrimaryColor ? safePrimaryColor(input.brandPrimaryColor) : undefined,
+      brandLogoDataUrl: input.brandLogoDataUrl ?? undefined,
+      brandWebsite: input.brandWebsite ?? undefined,
+      brandEmail: input.brandEmail ?? undefined
+    }
+  });
+
+  return res.json({ organization: updated });
+});
+
+const CreateClientSchema = z.object({
+  organizationId: z.string().min(1),
+  name: z.string().min(1).max(200),
+  industry: z.string().min(1).max(200).optional(),
+  contactEmail: z.string().email().optional()
+});
+
+app.get('/api/msp/clients', requireAuth, async (req, res) => {
+  const prisma = getPrisma();
+  const organizationId = String(req.query.organizationId || '');
+  if (!organizationId) return res.status(400).json({ error: 'invalid_request' });
+  const membership = await requireOrgMember(prisma, { userId: req.auth.userId, organizationId });
+  if (!membership) return res.status(404).json({ error: 'not_found' });
+
+  const clients = await prisma.client.findMany({
+    where: { organizationId },
+    orderBy: { createdAt: 'desc' }
+  });
+  return res.json({ clients });
+});
+
+app.post('/api/msp/clients', requireAuth, async (req, res) => {
+  const prisma = getPrisma();
+  let input;
+  try {
+    input = CreateClientSchema.parse(req.body);
+  } catch {
+    return res.status(400).json({ error: 'invalid_request' });
+  }
+  const membership = await requireOrgMember(prisma, { userId: req.auth.userId, organizationId: input.organizationId });
+  if (!membership) return res.status(404).json({ error: 'not_found' });
+
+  const client = await prisma.client.create({
+    data: {
+      organizationId: input.organizationId,
+      name: input.name,
+      industry: input.industry,
+      contactEmail: input.contactEmail
+    }
+  });
+  return res.json({ client });
+});
+
+const CreateProjectSchema = z.object({
+  organizationId: z.string().min(1),
+  clientId: z.string().min(1),
+  name: z.string().min(1).max(200),
+  status: z.enum(['lead', 'qualified', 'proposed', 'in_progress', 'done']).optional(),
+  intake: z.record(z.any()).optional()
+});
+
+app.get('/api/msp/projects', requireAuth, async (req, res) => {
+  const prisma = getPrisma();
+  const organizationId = String(req.query.organizationId || '');
+  const clientId = String(req.query.clientId || '');
+  if (!organizationId && !clientId) return res.status(400).json({ error: 'invalid_request' });
+
+  if (organizationId) {
+    const membership = await requireOrgMember(prisma, { userId: req.auth.userId, organizationId });
+    if (!membership) return res.status(404).json({ error: 'not_found' });
+    const projects = await prisma.project.findMany({
+      where: { organizationId },
+      include: { client: true },
+      orderBy: { createdAt: 'desc' }
+    });
+    return res.json({ projects });
+  }
+
+  // clientId path: ensure membership via the client's org
+  const client = await prisma.client.findUnique({ where: { id: clientId }, select: { organizationId: true } });
+  if (!client) return res.status(404).json({ error: 'not_found' });
+  const membership = await requireOrgMember(prisma, { userId: req.auth.userId, organizationId: client.organizationId });
+  if (!membership) return res.status(404).json({ error: 'not_found' });
+
+  const projects = await prisma.project.findMany({
+    where: { clientId },
+    include: { client: true },
+    orderBy: { createdAt: 'desc' }
+  });
+  return res.json({ projects });
+});
+
+app.post('/api/msp/projects', requireAuth, async (req, res) => {
+  const prisma = getPrisma();
+  let input;
+  try {
+    input = CreateProjectSchema.parse(req.body);
+  } catch {
+    return res.status(400).json({ error: 'invalid_request' });
+  }
+
+  const membership = await requireOrgMember(prisma, { userId: req.auth.userId, organizationId: input.organizationId });
+  if (!membership) return res.status(404).json({ error: 'not_found' });
+
+  // Ensure client belongs to org
+  const client = await prisma.client.findUnique({ where: { id: input.clientId } });
+  if (!client || client.organizationId !== input.organizationId) return res.status(400).json({ error: 'invalid_request' });
+
+  const project = await prisma.project.create({
+    data: {
+      organizationId: input.organizationId,
+      clientId: input.clientId,
+      name: input.name,
+      status: input.status,
+      intake: input.intake ?? {}
+    },
+    include: { client: true }
+  });
+  return res.json({ project });
+});
+
+const CreateProposalSchema = z.object({
+  organizationId: z.string().min(1),
+  projectId: z.string().min(1),
+  title: z.string().min(1).max(200),
+  data: z.record(z.any()).optional()
+});
+
+app.get('/api/msp/proposals', requireAuth, async (req, res) => {
+  const prisma = getPrisma();
+  const projectId = String(req.query.projectId || '');
+  if (!projectId) return res.status(400).json({ error: 'invalid_request' });
+  const project = await prisma.project.findUnique({ where: { id: projectId }, select: { organizationId: true } });
+  if (!project) return res.status(404).json({ error: 'not_found' });
+  const membership = await requireOrgMember(prisma, { userId: req.auth.userId, organizationId: project.organizationId });
+  if (!membership) return res.status(404).json({ error: 'not_found' });
+
+  const proposals = await prisma.proposal.findMany({
+    where: { projectId },
+    orderBy: [{ version: 'desc' }]
+  });
+  return res.json({ proposals });
+});
+
+app.post('/api/msp/proposals', requireAuth, async (req, res) => {
+  const prisma = getPrisma();
+  let input;
+  try {
+    input = CreateProposalSchema.parse(req.body);
+  } catch {
+    return res.status(400).json({ error: 'invalid_request' });
+  }
+  const membership = await requireOrgMember(prisma, { userId: req.auth.userId, organizationId: input.organizationId });
+  if (!membership) return res.status(404).json({ error: 'not_found' });
+
+  const project = await prisma.project.findUnique({ where: { id: input.projectId } });
+  if (!project || project.organizationId !== input.organizationId) return res.status(400).json({ error: 'invalid_request' });
+
+  const last = await prisma.proposal.findFirst({
+    where: { projectId: input.projectId },
+    orderBy: { version: 'desc' },
+    select: { version: true }
+  });
+  const nextVersion = (last?.version || 0) + 1;
+
+  const proposal = await prisma.proposal.create({
+    data: {
+      organizationId: input.organizationId,
+      projectId: input.projectId,
+      version: nextVersion,
+      title: input.title,
+      data: input.data ?? {}
+    }
+  });
+  return res.json({ proposal });
+});
+
+async function renderProposalPdf({ organization, client, project, proposal }) {
+  const brandName = organization.brandName || organization.name;
+  const primary = safePrimaryColor(organization.brandPrimaryColor);
+  const logo = parseDataUrlImage(organization.brandLogoDataUrl);
+
+  const doc = new PDFDocument({ size: 'A4', margin: 50 });
+  const chunks = [];
+  doc.on('data', (c) => chunks.push(c));
+
+  const pageWidth = doc.page.width;
+
+  // Header bar
+  doc.save();
+  doc.rect(0, 0, pageWidth, 90).fill(primary);
+  doc.restore();
+
+  // Brand header text / logo
+  doc.fillColor('#ffffff').fontSize(22).font('Helvetica-Bold');
+  doc.text(brandName, 50, 28, { continued: false });
+
+  if (logo) {
+    try {
+      // Place logo top-right; PDFKit can infer format from buffer in most cases.
+      doc.image(logo.buf, pageWidth - 140, 18, { fit: [90, 60] });
+    } catch {
+      // ignore logo errors
+    }
+  }
+
+  doc.fontSize(10).font('Helvetica').fillColor('#ffffff');
+  const metaParts = [organization.brandWebsite, organization.brandEmail].filter(Boolean);
+  if (metaParts.length) doc.text(metaParts.join(' • '), 50, 58);
+
+  doc.fillColor('#111827');
+  doc.fontSize(18).font('Helvetica-Bold');
+  doc.text(`Proposal: ${proposal.title}`, 50, 120);
+
+  doc.fontSize(11).font('Helvetica');
+  doc.text(`Client: ${client.name}`, 50, 150);
+  doc.text(`Project: ${project.name}`, 50, 168);
+  doc.text(`Version: v${proposal.version} • Status: ${proposal.status}`, 50, 186);
+  doc.text(`Generated: ${new Date().toLocaleDateString()}`, 50, 204);
+
+  let y = 235;
+
+  function section(title) {
+    doc.fontSize(13).font('Helvetica-Bold').fillColor('#111827');
+    doc.text(title, 50, y);
+    y += 16;
+    doc.moveTo(50, y).lineTo(pageWidth - 50, y).lineWidth(1).strokeColor('#e5e7eb').stroke();
+    y += 12;
+    doc.fontSize(11).font('Helvetica').fillColor('#111827');
+  }
+
+  function ensureSpace(px) {
+    if (y + px < doc.page.height - 60) return;
+    doc.addPage();
+    y = 60;
+  }
+
+  const data = (proposal.data && typeof proposal.data === 'object') ? proposal.data : {};
+
+  // Overview
+  const overview = typeof data.overview === 'string' ? data.overview : '';
+  if (overview) {
+    ensureSpace(120);
+    section('Overview');
+    doc.text(overview, 50, y, { width: pageWidth - 100 });
+    y = doc.y + 18;
+  }
+
+  // Scope
+  const scope = Array.isArray(data.scope) ? data.scope : [];
+  if (scope.length) {
+    ensureSpace(160);
+    section('Scope of Work');
+    for (const item of scope) {
+      ensureSpace(40);
+      if (typeof item === 'string') {
+        doc.text(`• ${item}`, 50, y, { width: pageWidth - 100 });
+        y = doc.y + 6;
+        continue;
+      }
+      if (item && typeof item === 'object') {
+        const t = typeof item.title === 'string' ? item.title : 'Scope item';
+        const d = typeof item.description === 'string' ? item.description : '';
+        doc.font('Helvetica-Bold').text(`• ${t}`, 50, y, { width: pageWidth - 100 });
+        y = doc.y + 2;
+        doc.font('Helvetica');
+        if (d) {
+          doc.text(d, 70, y, { width: pageWidth - 120 });
+          y = doc.y + 6;
+        } else {
+          y += 6;
+        }
+      }
+    }
+    y += 10;
+  }
+
+  // Pricing
+  const pricing = (data.pricing && typeof data.pricing === 'object') ? data.pricing : null;
+  if (pricing) {
+    ensureSpace(140);
+    section('Pricing');
+    const currency = typeof pricing.currency === 'string' ? pricing.currency : '$';
+    const oneTime = pricing.oneTime;
+    const monthly = pricing.monthly;
+    if (typeof oneTime === 'number') doc.text(`One-time project: ${currency}${oneTime.toLocaleString()}`, 50, y);
+    y = doc.y + 6;
+    if (typeof monthly === 'number') doc.text(`Optional managed services: ${currency}${monthly.toLocaleString()}/month`, 50, y);
+    y = doc.y + 14;
+    if (typeof pricing.notes === 'string' && pricing.notes) {
+      doc.text(pricing.notes, 50, y, { width: pageWidth - 100 });
+      y = doc.y + 10;
+    }
+  }
+
+  // Assumptions
+  const assumptions = Array.isArray(data.assumptions) ? data.assumptions : [];
+  if (assumptions.length) {
+    ensureSpace(140);
+    section('Assumptions');
+    for (const a of assumptions) {
+      ensureSpace(30);
+      if (typeof a === 'string') {
+        doc.text(`• ${a}`, 50, y, { width: pageWidth - 100 });
+        y = doc.y + 6;
+      }
+    }
+    y += 10;
+  }
+
+  // Next steps
+  const nextSteps = Array.isArray(data.nextSteps) ? data.nextSteps : [];
+  if (nextSteps.length) {
+    ensureSpace(120);
+    section('Next Steps');
+    for (const s of nextSteps) {
+      ensureSpace(30);
+      if (typeof s === 'string') {
+        doc.text(`• ${s}`, 50, y, { width: pageWidth - 100 });
+        y = doc.y + 6;
+      }
+    }
+    y += 10;
+  }
+
+  // Footer
+  doc.fontSize(9).fillColor('#6b7280');
+  doc.text(`Prepared by ${brandName}`, 50, doc.page.height - 45);
+
+  return await new Promise((resolve) => {
+    doc.on('end', () => resolve(Buffer.concat(chunks)));
+    doc.end();
+  });
+}
+
+app.get('/api/msp/proposals/:proposalId/pdf', requireAuth, async (req, res) => {
+  const prisma = getPrisma();
+  const proposalId = req.params.proposalId;
+
+  const proposal = await prisma.proposal.findUnique({ where: { id: proposalId } });
+  if (!proposal) return res.status(404).json({ error: 'not_found' });
+
+  const membership = await requireOrgMember(prisma, { userId: req.auth.userId, organizationId: proposal.organizationId });
+  if (!membership) return res.status(404).json({ error: 'not_found' });
+
+  const [organization, project] = await Promise.all([
+    prisma.organization.findUnique({ where: { id: proposal.organizationId } }),
+    prisma.project.findUnique({ where: { id: proposal.projectId }, include: { client: true } })
+  ]);
+
+  if (!organization || !project) return res.status(404).json({ error: 'not_found' });
+
+  const pdf = await renderProposalPdf({
+    organization,
+    client: project.client,
+    project,
+    proposal
+  });
+
+  res.setHeader('Content-Type', 'application/pdf');
+  res.setHeader('Content-Disposition', `inline; filename="proposal-v${proposal.version}.pdf"`);
+  return res.status(200).send(pdf);
 });
 
 // -------------------------
