@@ -185,33 +185,6 @@
             submitBtn.disabled = true;
             submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Signing in...';
 
-            // First, try localStorage (for frontend-only mode)
-            const userStr = localStorage.getItem('user');
-            if (userStr) {
-                try {
-                    const user = JSON.parse(userStr);
-                    if (user.email && user.email.toLowerCase() === email) {
-                        // Email matches - allow login (password check skipped in demo mode)
-                        console.log('Login successful via localStorage');
-                        // Ensure subscription exists
-                        const subscriptionStr = localStorage.getItem('subscription');
-                        if (!subscriptionStr) {
-                            localStorage.setItem('subscription', JSON.stringify({
-                                plan: user.plan || 'free',
-                                status: 'active',
-                                startDate: new Date().toISOString(),
-                                trialEnds: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString()
-                            }));
-                        }
-                        window.location.href = 'index.html';
-                        return;
-                    }
-                } catch (parseError) {
-                    console.error('Error parsing user data:', parseError);
-                }
-            }
-
-            // If localStorage doesn't have the user, try backend API
             try {
                 const response = await fetch('/api/auth/login', {
                     method: 'POST',
@@ -221,11 +194,6 @@
                 });
 
                 if (response.ok) {
-                    const data = await response.json();
-                    // Save to localStorage as backup
-                    localStorage.setItem('user', JSON.stringify(data.user));
-                    localStorage.setItem('subscription', JSON.stringify(data.subscription));
-                    // Redirect to app
                     window.location.href = 'index.html';
                     return;
                 } else {
@@ -244,23 +212,8 @@
                 }
             } catch (error) {
                 console.error('Login error:', error);
-                
-                // Network error or backend not available
-                // Check localStorage one more time
-                if (userStr) {
-                    try {
-                        const user = JSON.parse(userStr);
-                        if (user.email && user.email.toLowerCase() === email) {
-                            console.log('Login successful via localStorage (backend unavailable)');
-                            window.location.href = 'index.html';
-                            return;
-                        }
-                    } catch (parseError) {
-                        console.error('Error parsing user data:', parseError);
-                    }
-                }
-                
-                showError('No account found with this email. Please sign up first or check your email address.');
+
+                showError('Unable to reach the server. Please try again in a moment.');
                 submitBtn.disabled = false;
                 submitBtn.innerHTML = '<i class="fas fa-sign-in-alt"></i> Sign In';
             }

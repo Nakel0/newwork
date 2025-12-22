@@ -24,6 +24,27 @@ enum SubscriptionStatus {
   unpaid
 }
 
+enum OrgRole {
+  owner
+  admin
+  member
+}
+
+enum ProjectStatus {
+  lead
+  qualified
+  proposed
+  in_progress
+  done
+}
+
+enum ProposalStatus {
+  draft
+  sent
+  accepted
+  rejected
+}
+
 model User {
   id               String       @id @default(cuid())
   email            String       @unique
@@ -36,6 +57,7 @@ model User {
   subscription     Subscription?
   usageMonths      UsageMonth[]
   appState         AppState?
+  orgMemberships   OrganizationMember[]
 
   createdAt        DateTime     @default(now())
   updatedAt        DateTime     @updatedAt
@@ -103,4 +125,115 @@ model AppState {
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+}
+
+// -------------------------
+// MSP multi-tenant models
+// -------------------------
+
+model Organization {
+  id                String               @id @default(cuid())
+  name              String
+  slug              String?              @unique
+
+  // Branding used in proposals/reports
+  brandName         String?
+  brandPrimaryColor String               @default("#667eea")
+  // Optional logo as data URL (png/jpg base64). Keeping it simple to avoid object storage for now.
+  brandLogoDataUrl  String?
+  brandWebsite      String?
+  brandEmail        String?
+
+  members           OrganizationMember[]
+  clients           Client[]
+  projects          Project[]
+  proposals         Proposal[]
+
+  createdAt         DateTime             @default(now())
+  updatedAt         DateTime             @updatedAt
+
+  @@index([createdAt])
+}
+
+model OrganizationMember {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  userId         String
+  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  role           OrgRole      @default(owner)
+
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  @@unique([organizationId, userId])
+  @@index([userId])
+}
+
+model Client {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  name           String
+  industry       String?
+  contactEmail   String?
+
+  projects       Project[]
+
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  @@index([organizationId])
+  @@index([createdAt])
+}
+
+model Project {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  clientId       String
+  client         Client       @relation(fields: [clientId], references: [id], onDelete: Cascade)
+
+  name           String
+  status         ProjectStatus @default(lead)
+
+  // Optional: store a snapshot of intake/inventory separate from the legacy User.appState
+  intake         Json         @default("{}")
+
+  proposals      Proposal[]
+
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  @@index([organizationId])
+  @@index([clientId])
+  @@index([createdAt])
+}
+
+model Proposal {
+  id             String        @id @default(cuid())
+  organizationId String
+  organization   Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  projectId      String
+  project        Project       @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  version        Int
+  title          String
+  status         ProposalStatus @default(draft)
+  sentAt         DateTime?
+
+  // Proposal snapshot used for PDF generation (scope, pricing, timeline, assumptions, etc.)
+  data           Json          @default("{}")
+
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+
+  @@unique([projectId, version])
+  @@index([organizationId])
+  @@index([createdAt])
 }

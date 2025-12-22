@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>MSP Dashboard - CloudMigrate Pro</title>
+  <link rel="stylesheet" href="styles.css" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <style>
+    .msp-wrap { max-width: 1200px; margin: 0 auto; padding: 2rem; }
+    .msp-grid { display: grid; grid-template-columns: 1fr; gap: 1.25rem; }
+    @media (min-width: 980px) { .msp-grid { grid-template-columns: 1fr 1fr; } }
+    .msp-card { background: white; border: 1px solid #e2e8f0; border-radius: 14px; padding: 1.25rem; box-shadow: 0 10px 30px rgba(0,0,0,0.05); }
+    .msp-card h2 { margin: 0 0 0.75rem 0; font-size: 1.1rem; color: #2d3748; display: flex; gap: 0.5rem; align-items: center; }
+    .msp-row { display: flex; gap: 0.75rem; flex-wrap: wrap; align-items: center; }
+    .msp-row > * { flex: 1 1 auto; }
+    .msp-row .fixed { flex: 0 0 auto; }
+    .msp-input, .msp-select, .msp-textarea {
+      width: 100%;
+      padding: 0.65rem 0.85rem;
+      border: 2px solid #e2e8f0;
+      border-radius: 10px;
+      font-size: 0.95rem;
+      background: #fff;
+    }
+    .msp-textarea { min-height: 110px; resize: vertical; }
+    .msp-muted { color: #718096; font-size: 0.9rem; }
+    .msp-list { margin-top: 0.75rem; display: grid; gap: 0.5rem; }
+    .msp-item { border: 1px solid #edf2f7; border-radius: 12px; padding: 0.75rem; display: flex; justify-content: space-between; gap: 1rem; align-items: flex-start; }
+    .msp-item .meta { color: #718096; font-size: 0.85rem; margin-top: 0.2rem; }
+    .msp-actions { display: flex; gap: 0.5rem; flex-wrap: wrap; justify-content: flex-end; }
+    .msp-btn {
+      border: none;
+      border-radius: 10px;
+      padding: 0.6rem 0.85rem;
+      font-weight: 600;
+      cursor: pointer;
+      background: #667eea;
+      color: white;
+    }
+    .msp-btn.secondary { background: #edf2f7; color: #2d3748; }
+    .msp-btn.danger { background: #fed7d7; color: #9b2c2c; }
+    .msp-btn:disabled { opacity: 0.6; cursor: not-allowed; }
+    .msp-badge { display: inline-flex; gap: 0.4rem; align-items: center; background: #edf2f7; color: #2d3748; border-radius: 999px; padding: 0.25rem 0.6rem; font-size: 0.85rem; }
+    .msp-topbar { display: flex; justify-content: space-between; align-items: center; gap: 1rem; flex-wrap: wrap; margin-bottom: 1.25rem; }
+    .msp-topbar h1 { margin: 0; color: #2d3748; font-size: 1.6rem; }
+    .msp-toast { position: fixed; bottom: 18px; right: 18px; background: #2d3748; color: #fff; padding: 0.75rem 0.9rem; border-radius: 12px; box-shadow: 0 10px 30px rgba(0,0,0,0.25); display: none; max-width: 360px; }
+  </style>
+</head>
+<body style="background:#f7fafc;">
+  <div class="msp-wrap">
+    <div class="msp-topbar">
+      <div>
+        <h1><i class="fas fa-briefcase"></i> MSP Dashboard</h1>
+        <div class="msp-muted">Create orgs, clients, projects, proposals — and export a branded proposal PDF.</div>
+      </div>
+      <div class="msp-row" style="justify-content:flex-end;">
+        <span class="msp-badge" id="whoami"><i class="fas fa-user"></i> <span>Loading…</span></span>
+        <button class="msp-btn secondary fixed" onclick="window.location.href='index.html'">
+          <i class="fas fa-arrow-left"></i> Back to App
+        </button>
+        <button class="msp-btn danger fixed" id="logoutBtn">
+          <i class="fas fa-sign-out-alt"></i> Sign out
+        </button>
+      </div>
+    </div>
+
+    <div class="msp-card">
+      <h2><i class="fas fa-building"></i> Organization</h2>
+      <div class="msp-row">
+        <select class="msp-select" id="orgSelect"></select>
+        <button class="msp-btn secondary fixed" id="refreshOrgsBtn"><i class="fas fa-rotate"></i> Refresh</button>
+      </div>
+      <div class="msp-muted" style="margin-top:0.5rem;">
+        Role: <strong id="orgRole">-</strong>
+      </div>
+      <hr style="border:none;border-top:1px solid #edf2f7;margin:1rem 0;">
+      <div class="msp-row">
+        <input class="msp-input" id="newOrgName" placeholder="New organization name (e.g., Acme MSP)" />
+        <input class="msp-input" id="newOrgSlug" placeholder="Slug (optional, e.g., acme-msp)" />
+        <button class="msp-btn fixed" id="createOrgBtn"><i class="fas fa-plus"></i> Create Org</button>
+      </div>
+    </div>
+
+    <div class="msp-grid">
+      <div class="msp-card">
+        <h2><i class="fas fa-paintbrush"></i> Branding (used on PDFs)</h2>
+        <div class="msp-row">
+          <input class="msp-input" id="brandName" placeholder="Brand name (e.g., Acme MSP)" />
+          <input class="msp-input" id="brandPrimaryColor" placeholder="#667eea" />
+        </div>
+        <div class="msp-row" style="margin-top:0.75rem;">
+          <input class="msp-input" id="brandWebsite" placeholder="Website (optional, https://...)" />
+          <input class="msp-input" id="brandEmail" placeholder="Email (optional, proposals@...)" />
+        </div>
+        <div class="msp-row" style="margin-top:0.75rem;">
+          <input class="msp-input" type="file" id="brandLogoFile" accept="image/png,image/jpeg" />
+          <button class="msp-btn secondary fixed" id="clearLogoBtn"><i class="fas fa-ban"></i> Clear Logo</button>
+          <button class="msp-btn fixed" id="saveBrandingBtn"><i class="fas fa-save"></i> Save Branding</button>
+        </div>
+        <div class="msp-muted" style="margin-top:0.5rem;">
+          Tip: Upload a small PNG/JPG logo. It will be stored as a data URL in the database for now.
+        </div>
+      </div>
+
+      <div class="msp-card">
+        <h2><i class="fas fa-user-tie"></i> Client</h2>
+        <div class="msp-row">
+          <input class="msp-input" id="clientName" placeholder="Client name (e.g., Contoso Inc.)" />
+          <input class="msp-input" id="clientIndustry" placeholder="Industry (optional)" />
+        </div>
+        <div class="msp-row" style="margin-top:0.75rem;">
+          <input class="msp-input" id="clientEmail" placeholder="Contact email (optional)" />
+          <button class="msp-btn fixed" id="createClientBtn"><i class="fas fa-plus"></i> Add Client</button>
+        </div>
+        <div class="msp-list" id="clientsList"></div>
+      </div>
+
+      <div class="msp-card">
+        <h2><i class="fas fa-diagram-project"></i> Project</h2>
+        <div class="msp-row">
+          <select class="msp-select" id="clientSelect"></select>
+          <button class="msp-btn secondary fixed" id="refreshProjectsBtn"><i class="fas fa-rotate"></i> Refresh</button>
+        </div>
+        <div class="msp-row" style="margin-top:0.75rem;">
+          <input class="msp-input" id="projectName" placeholder="Project name (e.g., M365 + Azure migration)" />
+          <select class="msp-select" id="projectStatus">
+            <option value="lead">Lead</option>
+            <option value="qualified">Qualified</option>
+            <option value="proposed">Proposed</option>
+            <option value="in_progress">In progress</option>
+            <option value="done">Done</option>
+          </select>
+          <button class="msp-btn fixed" id="createProjectBtn"><i class="fas fa-plus"></i> Add Project</button>
+        </div>
+        <div class="msp-list" id="projectsList"></div>
+      </div>
+
+      <div class="msp-card">
+        <h2><i class="fas fa-file-signature"></i> Proposal</h2>
+        <div class="msp-row">
+          <select class="msp-select" id="projectSelect"></select>
+          <button class="msp-btn secondary fixed" id="refreshProposalsBtn"><i class="fas fa-rotate"></i> Refresh</button>
+        </div>
+        <div class="msp-muted" style="margin-top:0.5rem;">
+          Selected proposal: <strong id="selectedProposalLabel">None</strong>
+        </div>
+        <div class="msp-row" style="margin-top:0.75rem;">
+          <input class="msp-input" id="proposalTitle" placeholder="Proposal title (e.g., Cloud Migration Proposal)" />
+          <button class="msp-btn fixed" id="createProposalBtn"><i class="fas fa-plus"></i> Create v1</button>
+          <button class="msp-btn secondary fixed" id="saveNewVersionBtn" title="Creates a new version (v2, v3...) from the selected proposal" disabled>
+            <i class="fas fa-code-branch"></i> Save as new version
+          </button>
+          <button class="msp-btn fixed" id="sendProposalBtn" title="Marks selected proposal as sent" disabled>
+            <i class="fas fa-paper-plane"></i> Send
+          </button>
+          <button class="msp-btn secondary fixed" id="clearSelectedProposalBtn" title="Clear selection" disabled>
+            <i class="fas fa-xmark"></i> Clear
+          </button>
+        </div>
+        <div class="msp-muted" style="margin-top:0.5rem;">Proposal content (simple fields used by the PDF generator):</div>
+        <div class="msp-row" style="margin-top:0.5rem;">
+          <textarea class="msp-textarea" id="proposalOverview" placeholder="Overview (plain text)"></textarea>
+        </div>
+        <div class="msp-row" style="margin-top:0.5rem;">
+          <textarea class="msp-textarea" id="proposalScope" placeholder="Scope (one bullet per line)"></textarea>
+        </div>
+        <div class="msp-row" style="margin-top:0.5rem;">
+          <input class="msp-input" id="pricingCurrency" placeholder="Currency symbol (e.g., $)" value="$" />
+          <input class="msp-input" id="pricingOneTime" placeholder="One-time project (number)" />
+          <input class="msp-input" id="pricingMonthly" placeholder="Optional monthly (number)" />
+        </div>
+        <div class="msp-row" style="margin-top:0.5rem;">
+          <textarea class="msp-textarea" id="proposalAssumptions" placeholder="Assumptions (one per line)"></textarea>
+        </div>
+        <div class="msp-row" style="margin-top:0.5rem;">
+          <textarea class="msp-textarea" id="proposalNextSteps" placeholder="Next steps (one per line)"></textarea>
+        </div>
+        <div class="msp-list" id="proposalsList"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="msp-toast" id="toast"></div>
+
+  <script src="msp.js"></script>
+</body>
+</html>
+

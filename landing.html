@@ -368,8 +368,7 @@
             return json;
         }
 
-        // Backend check removed - this is a frontend-only app using localStorage
-        // No backend server needed!
+        // Real SaaS mode: backend provides auth + persistence (cookie session).
 
         // Modal functions
         function showSignup(plan = 'free') {
@@ -416,7 +415,7 @@
                 name: nameInput.value.trim(),
                 email: emailInput.value.trim(),
                 password: passwordInput.value,
-                company: companyInput.value.trim(),
+                companyName: companyInput.value.trim(),
                 plan: planSelect.value
             };
             
@@ -432,32 +431,45 @@
                 alert('Password must be at least 8 characters');
                 return false;
             }
-            
-            // Save to localStorage
-            localStorage.setItem('user', JSON.stringify(userData));
-            localStorage.setItem('subscription', JSON.stringify({
-                plan: userData.plan,
-                status: 'active',
-                startDate: new Date().toISOString(),
-                trialEnds: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString()
-            }));
-            
-            console.log('Data saved to localStorage');
-            console.log('User:', localStorage.getItem('user'));
-            console.log('Subscription:', localStorage.getItem('subscription'));
-            
-            // Show feedback
+
+            // Real SaaS: create account via backend (sets httpOnly cookie session)
             const submitBtn = form.querySelector('button[type="submit"]');
             if (submitBtn) {
-                submitBtn.textContent = 'Account Created! Redirecting...';
+                submitBtn.textContent = 'Creating account...';
                 submitBtn.disabled = true;
             }
-            
-            // Redirect
-            setTimeout(() => {
-                window.location.href = 'index.html';
-            }, 800);
-            
+
+            fetch('/api/auth/signup', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                credentials: 'include',
+                body: JSON.stringify({
+                    name: userData.name,
+                    email: userData.email,
+                    password: userData.password,
+                    companyName: userData.companyName,
+                    plan: userData.plan
+                })
+            })
+                .then(async (res) => {
+                    if (res.ok) {
+                        window.location.href = 'index.html';
+                        return;
+                    }
+                    const err = await res.json().catch(() => ({ error: 'signup_failed' }));
+                    if (err?.error === 'email_in_use') alert('That email is already in use. Please sign in.');
+                    else alert('Signup failed. Please check your inputs and try again.');
+                })
+                .catch(() => {
+                    alert('Unable to reach the server. Please try again in a moment.');
+                })
+                .finally(() => {
+                    if (submitBtn) {
+                        submitBtn.textContent = 'Create Account';
+                        submitBtn.disabled = false;
+                    }
+                });
+
             return false;
         }
 
@@ -492,41 +504,38 @@
                 alert('Please enter both email and password');
                 return false;
             }
-            
-            // Get user from localStorage
-            const userStr = localStorage.getItem('user');
-            if (!userStr) {
-                alert('No account found. Please sign up first.');
-                return false;
+
+            const submitBtn = form.querySelector('button[type="submit"]');
+            if (submitBtn) {
+                submitBtn.textContent = 'Signing in...';
+                submitBtn.disabled = true;
             }
-            
-            let user;
-            try {
-                user = JSON.parse(userStr);
-            } catch (parseError) {
-                console.error('Error parsing user data:', parseError);
-                alert('Error reading account data. Please sign up again.');
-                return false;
-            }
-            
-            console.log('Stored user email:', user.email);
-            console.log('Entered email:', email);
-            
-            if (user && user.email && user.email.toLowerCase() === email.toLowerCase()) {
-                const submitBtn = form.querySelector('button[type="submit"]');
-                if (submitBtn) {
-                    submitBtn.textContent = 'Signing in...';
-                    submitBtn.disabled = true;
-                }
-                
-                console.log('Login successful, redirecting...');
-                setTimeout(() => {
-                    window.location.href = 'index.html';
-                }, 500);
-            } else {
-                alert('Invalid email. Please check your email or sign up first.');
-            }
-            
+
+            fetch('/api/auth/login', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                credentials: 'include',
+                body: JSON.stringify({ email: email.toLowerCase(), password })
+            })
+                .then(async (res) => {
+                    if (res.ok) {
+                        window.location.href = 'index.html';
+                        return;
+                    }
+                    const err = await res.json().catch(() => ({ error: 'invalid_credentials' }));
+                    if (err?.error === 'invalid_credentials') alert('Invalid email or password.');
+                    else alert('Sign in failed. Please try again.');
+                })
+                .catch(() => {
+                    alert('Unable to reach the server. Please try again in a moment.');
+                })
+                .finally(() => {
+                    if (submitBtn) {
+                        submitBtn.textContent = 'Sign In';
+                        submitBtn.disabled = false;
+                    }
+                });
+
             return false;
         }
 

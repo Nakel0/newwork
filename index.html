@@ -55,6 +55,9 @@
                         <a href="#" class="dropdown-item" onclick="showSection('billing')">
                             <i class="fas fa-credit-card"></i> Billing & Subscription
                         </a>
+                        <a href="msp.html" class="dropdown-item">
+                            <i class="fas fa-briefcase"></i> MSP Dashboard
+                        </a>
                         <div class="dropdown-divider"></div>
                         <a href="#" class="dropdown-item" onclick="handleLogout()">
                             <i class="fas fa-sign-out-alt"></i> Sign Out
@@ -824,7 +827,7 @@
                         </div>
                         <div class="form-group">
                             <label>Email</label>
-                            <input type="email" id="profileEmail" required>
+                            <input type="email" id="profileEmail" required disabled title="Email changes are not supported yet">
                         </div>
                         <div class="form-group">
                             <label>Company Name</label>
@@ -856,6 +859,9 @@
                             <button class="btn-upgrade" onclick="showUpgradeModal()">Upgrade Plan</button>
                             <button class="btn-secondary" onclick="openBillingPortal()">
                                 <i class="fas fa-external-link-alt"></i> Manage billing
+                            </button>
+                            <button class="btn-secondary" onclick="syncSubscription()" title="Refresh plan and usage from server">
+                                <i class="fas fa-rotate"></i> Sync
                             </button>
                         </div>
                     </div>
