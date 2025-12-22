@@ -14,6 +14,9 @@ function showToast(message, { ms = 2600 } = {}) {
 }
 
 async function api(path, options = {}) {
+  if (api._demo) {
+    return demoApi(path, options);
+  }
   const res = await fetch(path, {
     credentials: 'include',
     headers: { 'Content-Type': 'application/json', ...(options.headers || {}) },
@@ -32,6 +35,221 @@ async function api(path, options = {}) {
     throw e;
   }
   return json;
+}
+
+function enableDemoMode() {
+  api._demo = true;
+  try { localStorage.setItem('mspDemoMode', '1'); } catch {}
+  const banner = $('demoBanner');
+  if (banner) banner.style.display = 'block';
+}
+
+function getDemoStore() {
+  const key = 'mspDemoStoreV1';
+  try {
+    const raw = localStorage.getItem(key);
+    if (raw) return JSON.parse(raw);
+  } catch {}
+  return { orgs: [], clients: [], projects: [], proposals: [] };
+}
+
+function setDemoStore(store) {
+  const key = 'mspDemoStoreV1';
+  try {
+    localStorage.setItem(key, JSON.stringify(store));
+  } catch {}
+}
+
+function uid(prefix = 'id') {
+  return `${prefix}_${Date.now()}_${Math.random().toString(16).slice(2)}`;
+}
+
+function jsonBody(options) {
+  try {
+    return options && options.body ? JSON.parse(options.body) : {};
+  } catch {
+    return {};
+  }
+}
+
+async function demoApi(path, options = {}) {
+  const method = (options.method || 'GET').toUpperCase();
+  const store = getDemoStore();
+
+  // /api/me
+  if (path === '/api/me' && method === 'GET') {
+    return {
+      user: { id: 'demo_user', name: 'Demo MSP', email: 'demo@example.com', companyName: 'Demo MSP' },
+      subscription: { plan: 'enterprise', status: 'active', trialEndsAt: null },
+      usage: { yearMonth: 209901, servers: 0, plans: 0, reportsThisMonth: 0, lastReportAt: null },
+      appState: {}
+    };
+  }
+
+  // /api/auth/logout
+  if (path === '/api/auth/logout' && method === 'POST') {
+    return { ok: true };
+  }
+
+  // /api/msp/orgs
+  if (path === '/api/msp/orgs' && method === 'GET') {
+    return {
+      organizations: store.orgs.map((o) => ({
+        id: o.id,
+        name: o.name,
+        slug: o.slug,
+        role: 'owner',
+        brandName: o.brandName,
+        brandPrimaryColor: o.brandPrimaryColor,
+        brandWebsite: o.brandWebsite,
+        brandEmail: o.brandEmail
+      }))
+    };
+  }
+  if (path === '/api/msp/orgs' && method === 'POST') {
+    const body = jsonBody(options);
+    const org = {
+      id: uid('org'),
+      name: body.name || 'Demo Org',
+      slug: body.slug || null,
+      brandName: body.brandName || body.name || 'Demo Org',
+      brandPrimaryColor: body.brandPrimaryColor || '#667eea',
+      brandLogoDataUrl: body.brandLogoDataUrl || null,
+      brandWebsite: body.brandWebsite || null,
+      brandEmail: body.brandEmail || null,
+      createdAt: new Date().toISOString()
+    };
+    store.orgs.unshift(org);
+    setDemoStore(store);
+    return { organization: org };
+  }
+
+  const brandingMatch = path.match(/^\/api\/msp\/orgs\/([^/]+)\/branding$/);
+  if (brandingMatch && method === 'PUT') {
+    const orgId = brandingMatch[1];
+    const body = jsonBody(options);
+    const org = store.orgs.find((o) => o.id === orgId);
+    if (!org) throw new Error('not_found');
+    if ('brandName' in body) org.brandName = body.brandName;
+    if ('brandPrimaryColor' in body) org.brandPrimaryColor = body.brandPrimaryColor;
+    if ('brandLogoDataUrl' in body) org.brandLogoDataUrl = body.brandLogoDataUrl;
+    if ('brandWebsite' in body) org.brandWebsite = body.brandWebsite;
+    if ('brandEmail' in body) org.brandEmail = body.brandEmail;
+    setDemoStore(store);
+    return { organization: org };
+  }
+
+  // /api/msp/clients?organizationId=...
+  const clientsMatch = path.match(/^\/api\/msp\/clients\?organizationId=([^&]+)$/);
+  if (clientsMatch && method === 'GET') {
+    const orgId = decodeURIComponent(clientsMatch[1]);
+    return { clients: store.clients.filter((c) => c.organizationId === orgId) };
+  }
+  if (path === '/api/msp/clients' && method === 'POST') {
+    const body = jsonBody(options);
+    const client = {
+      id: uid('client'),
+      organizationId: body.organizationId,
+      name: body.name,
+      industry: body.industry || null,
+      contactEmail: body.contactEmail || null,
+      createdAt: new Date().toISOString()
+    };
+    store.clients.unshift(client);
+    setDemoStore(store);
+    return { client };
+  }
+
+  // /api/msp/projects?clientId=...
+  const projectsMatch = path.match(/^\/api\/msp\/projects\?clientId=([^&]+)$/);
+  if (projectsMatch && method === 'GET') {
+    const clientId = decodeURIComponent(projectsMatch[1]);
+    const projects = store.projects
+      .filter((p) => p.clientId === clientId)
+      .map((p) => ({ ...p, client: store.clients.find((c) => c.id === p.clientId) || null }));
+    return { projects };
+  }
+  if (path === '/api/msp/projects' && method === 'POST') {
+    const body = jsonBody(options);
+    const project = {
+      id: uid('project'),
+      organizationId: body.organizationId,
+      clientId: body.clientId,
+      name: body.name,
+      status: body.status || 'lead',
+      intake: body.intake || {},
+      createdAt: new Date().toISOString()
+    };
+    store.projects.unshift(project);
+    setDemoStore(store);
+    return { project: { ...project, client: store.clients.find((c) => c.id === project.clientId) || null } };
+  }
+
+  // /api/msp/proposals?projectId=...
+  const proposalsMatch = path.match(/^\/api\/msp\/proposals\?projectId=([^&]+)$/);
+  if (proposalsMatch && method === 'GET') {
+    const projectId = decodeURIComponent(proposalsMatch[1]);
+    const proposals = store.proposals
+      .filter((p) => p.projectId === projectId)
+      .sort((a, b) => (b.version || 0) - (a.version || 0));
+    return { proposals };
+  }
+  if (path === '/api/msp/proposals' && method === 'POST') {
+    const body = jsonBody(options);
+    const versions = store.proposals.filter((p) => p.projectId === body.projectId).map((p) => p.version);
+    const nextVersion = (versions.length ? Math.max(...versions) : 0) + 1;
+    const proposal = {
+      id: uid('proposal'),
+      organizationId: body.organizationId,
+      projectId: body.projectId,
+      version: nextVersion,
+      title: body.title || 'Proposal',
+      status: 'draft',
+      sentAt: null,
+      data: body.data || {},
+      createdAt: new Date().toISOString()
+    };
+    store.proposals.unshift(proposal);
+    setDemoStore(store);
+    return { proposal };
+  }
+
+  const versionMatch = path.match(/^\/api\/msp\/proposals\/([^/]+)\/versions$/);
+  if (versionMatch && method === 'POST') {
+    const baseId = versionMatch[1];
+    const base = store.proposals.find((p) => p.id === baseId);
+    if (!base) throw new Error('not_found');
+    const body = jsonBody(options);
+    const versions = store.proposals.filter((p) => p.projectId === base.projectId).map((p) => p.version);
+    const nextVersion = (versions.length ? Math.max(...versions) : 0) + 1;
+    const proposal = {
+      id: uid('proposal'),
+      organizationId: base.organizationId,
+      projectId: base.projectId,
+      version: nextVersion,
+      title: body.title || base.title,
+      status: 'draft',
+      sentAt: null,
+      data: body.data || base.data || {},
+      createdAt: new Date().toISOString()
+    };
+    store.proposals.unshift(proposal);
+    setDemoStore(store);
+    return { proposal };
+  }
+
+  const sendMatch = path.match(/^\/api\/msp\/proposals\/([^/]+)\/send$/);
+  if (sendMatch && method === 'POST') {
+    const id = sendMatch[1];
+    const proposal = store.proposals.find((p) => p.id === id);
+    if (!proposal) throw new Error('not_found');
+    proposal.status = 'sent';
+    proposal.sentAt = proposal.sentAt || new Date().toISOString();
+    setDemoStore(store);
+    return { proposal };
+  }
+
+  throw new Error('not_implemented');
 }
 
 function splitLines(value) {
@@ -216,9 +434,15 @@ function renderProposals() {
         <button class="msp-btn secondary" data-edit="${pr.id}">
           <i class="fas fa-pen-to-square"></i> Edit
         </button>
-        <a class="msp-btn secondary" href="/api/msp/proposals/${pr.id}/pdf" target="_blank" rel="noopener">
-          <i class="fas fa-file-pdf"></i> PDF
-        </a>
+        ${
+          api._demo
+            ? `<button class="msp-btn secondary" data-pdf="${pr.id}" title="PDF requires backend">
+                <i class="fas fa-file-pdf"></i> PDF
+              </button>`
+            : `<a class="msp-btn secondary" href="/api/msp/proposals/${pr.id}/pdf" target="_blank" rel="noopener">
+                <i class="fas fa-file-pdf"></i> PDF
+              </a>`
+        }
         <button class="msp-btn" data-send="${pr.id}" ${pr.status === 'sent' ? 'disabled' : ''}>
           <i class="fas fa-paper-plane"></i> Send
         </button>
@@ -229,6 +453,9 @@ function renderProposals() {
     });
     row.querySelector('[data-send]')?.addEventListener('click', () => {
       sendProposal(pr.id).catch(() => {});
+    });
+    row.querySelector('[data-pdf]')?.addEventListener('click', () => {
+      showToast('PDF export requires the backend. This is a Netlify demo view.');
     });
     list.appendChild(row);
   }
@@ -601,11 +828,18 @@ async function onLogout() {
 }
 
 async function boot() {
+  const demoParam = new URLSearchParams(window.location.search).get('demo');
+  const demoPersisted = (() => {
+    try { return localStorage.getItem('mspDemoMode') === '1'; } catch { return false; }
+  })();
+  if (demoParam === '1' || demoPersisted) enableDemoMode();
+
   try {
     await loadMe();
   } catch {
-    window.location.href = 'login.html';
-    return;
+    // No backend available (Netlify preview) → demo mode
+    enableDemoMode();
+    await loadMe();
   }
 
   await loadOrgs();

@@ -2,26 +2,8 @@
   publish = "."
   command = ""
 
-# Netlify serves the static frontend.
-# The backend (Node/Express) must be deployed separately.
-# IMPORTANT: Replace BACKEND_ORIGIN below with your backend URL, e.g.:
-#   https://your-backend.onrender.com
-# or a tunnel URL while testing.
-
 [[redirects]]
   from = "/"
-  to = "/landing.html"
+  to = "/msp.html"
   status = 200
-
-[[redirects]]
-  from = "/api/*"
-  to = "BACKEND_ORIGIN/api/:splat"
-  status = 200
-  force = true
-
-[[redirects]]
-  from = "/healthz"
-  to = "BACKEND_ORIGIN/healthz"
-  status = 200
-  force = true
 
