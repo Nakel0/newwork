@@ -227,8 +227,9 @@ app.post('/api/auth/login', async (req, res) => {
   if (!ok) return res.status(401).json({ error: 'invalid_credentials' });
 
   // Ensure default related rows exist (for old accounts)
-  if (!user.subscription) {
-    await prisma.subscription.create({
+  let subscription = user.subscription;
+  if (!subscription) {
+    subscription = await prisma.subscription.create({
       data: { userId: user.id, plan: 'free', status: 'active' }
     });
   }
@@ -238,11 +239,11 @@ app.post('/api/auth/login', async (req, res) => {
 
   return res.json({
     user: { id: user.id, email: user.email, name: user.name, companyName: user.companyName },
-    subscription: user.subscription
+    subscription: subscription
       ? {
-          plan: user.subscription.plan,
-          status: user.subscription.status,
-          trialEndsAt: user.subscription.trialEndsAt
+          plan: subscription.plan,
+          status: subscription.status,
+          trialEndsAt: subscription.trialEndsAt
         }
       : null
   });
@@ -251,6 +252,32 @@ app.post('/api/auth/login', async (req, res) => {
 app.post('/api/auth/logout', (req, res) => {
   res.clearCookie(env.COOKIE_NAME, { path: '/' });
   res.json({ ok: true });
+});
+
+// Update profile (keep email immutable for now)
+const UpdateProfileSchema = z.object({
+  name: z.string().min(1).max(200),
+  companyName: z.string().min(1).max(200)
+});
+
+app.put('/api/me', requireAuth, async (req, res) => {
+  const prisma = getPrisma();
+  const { userId } = req.auth;
+
+  let input;
+  try {
+    input = UpdateProfileSchema.parse(req.body);
+  } catch {
+    return res.status(400).json({ error: 'invalid_request' });
+  }
+
+  const updated = await prisma.user.update({
+    where: { id: userId },
+    data: { name: input.name, companyName: input.companyName },
+    select: { id: true, email: true, name: true, companyName: true }
+  });
+
+  return res.json({ user: updated });
 });
 
 app.get('/api/me', requireAuth, async (req, res) => {

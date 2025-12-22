@@ -37,7 +37,7 @@ const appState = {
         servers: 0,
         plans: 0,
         reportsThisMonth: 0,
-        lastReportDate: null
+        lastReportAt: null
     },
     checklist: {
         tasks: [],
@@ -89,7 +89,7 @@ function applyMeToAppState(me, { loadAppState = false } = {}) {
         servers: me.usage?.servers || 0,
         plans: me.usage?.plans || 0,
         reportsThisMonth: me.usage?.reportsThisMonth || 0,
-        lastReportDate: me.usage?.lastReportAt || null
+        lastReportAt: me.usage?.lastReportAt || null
     };
 
     if (loadAppState && me.appState && typeof me.appState === 'object') {
@@ -165,58 +165,14 @@ const subscriptionPlans = {
     }
 };
 
-// Check if user is authenticated (localStorage-based for frontend-only app)
-function checkAuth() {
+// Real SaaS mode: cookie-based session with backend as source of truth.
+async function requireSession() {
     try {
-        const userStr = localStorage.getItem('user');
-        const subscriptionStr = localStorage.getItem('subscription');
-        
-        // Check if data exists
-        if (!userStr || !subscriptionStr) {
-            // Redirect to landing page if not authenticated
-            if (!window.location.href.includes('landing.html')) {
-                window.location.href = 'landing.html';
-            }
-            return false;
-        }
-        
-        // Parse the data
-        let user, subscription;
-        try {
-            user = JSON.parse(userStr);
-            subscription = JSON.parse(subscriptionStr);
-        } catch (parseError) {
-            console.error('Error parsing localStorage data:', parseError);
-            // Clear corrupted data
-            localStorage.removeItem('user');
-            localStorage.removeItem('subscription');
-            if (!window.location.href.includes('landing.html')) {
-                window.location.href = 'landing.html';
-            }
-            return false;
-        }
-        
-        // Validate that we have required fields
-        if (!user || !user.email || !subscription || !subscription.plan) {
-            if (!window.location.href.includes('landing.html')) {
-                window.location.href = 'landing.html';
-            }
-            return false;
-        }
-        
-        // Load user data into app state
-        appState.user = user;
-        appState.subscription = subscription;
-        
-        // Load app state from localStorage if available
-        loadProgress();
-        
+        await refreshMe({ loadAppState: true });
         return true;
-    } catch (error) {
-        console.error('Auth check error:', error);
-        if (!window.location.href.includes('landing.html')) {
-            window.location.href = 'landing.html';
-        }
+    } catch (e) {
+        // Not authenticated (or backend unavailable): send to sign-in
+        window.location.href = 'login.html';
         return false;
     }
 }
@@ -299,27 +255,32 @@ function updateUsageUI() {
         `${appState.usage.reportsThisMonth} / ${maxReports === -1 ? '∞' : maxReports}`;
 }
 
-// Upgrade plan (frontend-only - in production, this would integrate with Stripe)
-function upgradePlan(planName) {
-    // Update subscription in localStorage
-    appState.subscription.plan = planName;
-    appState.subscription.status = 'active';
-    localStorage.setItem('subscription', JSON.stringify(appState.subscription));
-    
-    // Update UI
-    updateSubscriptionUI();
-    updateUsageUI();
-    
-    showToast(`Upgraded to ${subscriptionPlans[planName].name} plan!`, 'success');
-    closeUpgradeModal();
-    
-    // In production, this would redirect to Stripe Checkout:
-    // window.location.href = `/checkout?plan=${planName}`;
+async function upgradePlan(planName) {
+    try {
+        const { url } = await api('/api/billing/checkout', {
+            method: 'POST',
+            body: JSON.stringify({ plan: planName })
+        });
+        if (url) {
+            window.location.href = url;
+        } else {
+            showToast('Checkout unavailable. Please try again later.', 'error');
+        }
+    } catch (e) {
+        console.error('Checkout error:', e);
+        showToast('Checkout unavailable. Please confirm Stripe is configured.', 'error');
+    }
 }
 
-function openBillingPortal() {
-    showToast('Billing portal requires Stripe integration. For demo, manage your plan in the Billing section.', 'info');
-    showSection('billing');
+async function openBillingPortal() {
+    try {
+        const { url } = await api('/api/billing/portal', { method: 'POST', body: '{}' });
+        if (url) window.location.href = url;
+        else showToast('Billing portal unavailable.', 'error');
+    } catch (e) {
+        console.error('Billing portal error:', e);
+        showToast('Billing portal unavailable. Please confirm Stripe is configured.', 'error');
+    }
 }
 
 async function handlePostCheckoutReturn() {
@@ -448,11 +409,10 @@ function closeUpgradeModal() {
     document.getElementById('upgradeModal').style.display = 'none';
 }
 
-// Process upgrade (in production, this would integrate with Stripe)
+// Process upgrade (Stripe Checkout)
 function processUpgrade() {
     const plan = document.getElementById('confirmUpgradeBtn').getAttribute('data-plan');
     
-    // For demo: upgrade directly (in production, redirect to Stripe)
     if (confirm(`Upgrade to ${subscriptionPlans[plan].name} plan for $${subscriptionPlans[plan].price}/month?`)) {
         upgradePlan(plan);
     }
@@ -461,14 +421,18 @@ function processUpgrade() {
 // Handle logout
 function handleLogout() {
     if (confirm('Are you sure you want to sign out?')) {
-        // Clear localStorage (frontend-only app)
-        localStorage.removeItem('user');
-        localStorage.removeItem('subscription');
-        localStorage.removeItem('cloudMigrationData');
-        localStorage.removeItem('usage');
-        
-        // Redirect to landing page
-        window.location.href = 'landing.html';
+        api('/api/auth/logout', { method: 'POST', body: '{}' })
+            .catch(() => {})
+            .finally(() => {
+                // Clear any legacy cached data if present
+                try {
+                    localStorage.removeItem('user');
+                    localStorage.removeItem('subscription');
+                    localStorage.removeItem('cloudMigrationData');
+                    localStorage.removeItem('usage');
+                } catch {}
+                window.location.href = 'landing.html';
+            });
     }
 }
 
@@ -644,13 +608,6 @@ function calculateAssessmentResults() {
 
 // Migration Planning Functions
 function updateMigrationPlan() {
-    // Check plan limit
-    if (!checkUsageLimit('maxPlans', 'plans')) {
-        const plan = getCurrentPlan();
-        showFeatureLock(`Your ${plan.name} plan allows ${plan.limits.maxPlans} migration plan(s). Please upgrade for unlimited plans.`);
-        return;
-    }
-    
     appState.planning.cloudProvider = document.getElementById('cloudProvider').value;
     appState.planning.migrationStrategy = document.getElementById('migrationStrategy').value;
     appState.planning.migrationPriority = document.getElementById('migrationPriority').value;
@@ -1144,57 +1101,33 @@ function saveProgress(options = {}) {
     };
 
     // Keep last report timestamp consistent
-    if (appState.usage.reportsThisMonth > 0 && !appState.usage.lastReportDate) {
-        appState.usage.lastReportDate = new Date().toISOString();
+    if (appState.usage.reportsThisMonth > 0 && !appState.usage.lastReportAt) {
+        appState.usage.lastReportAt = new Date().toISOString();
     }
 
-    try {
-        // Save to localStorage (frontend-only app)
-        localStorage.setItem('cloudMigrationData', JSON.stringify(data));
-        localStorage.setItem('usage', JSON.stringify({
-            servers: appState.usage.servers,
-            plans: appState.usage.plans,
-            reportsThisMonth: appState.usage.reportsThisMonth,
-            lastReportDate: appState.usage.lastReportDate || null
-        }));
-        
-        if (!silent) showToast('Progress saved successfully!');
-    } catch (error) {
-        console.error('Save error:', error);
-        if (!silent) showToast('Save failed. Please try again.', 'error');
-    }
+    // Persist to backend (cookie session)
+    api('/api/app/state', {
+        method: 'PUT',
+        body: JSON.stringify({
+            data,
+            usage: {
+                servers: appState.usage.servers,
+                plans: appState.usage.plans,
+                reportsThisMonth: appState.usage.reportsThisMonth,
+                lastReportAt: appState.usage.lastReportAt || null
+            }
+        })
+    })
+        .then(() => {
+            if (!silent) showToast('Progress saved successfully!');
+        })
+        .catch((error) => {
+            console.error('Save error:', error);
+            if (!silent) showToast('Save failed. Please try again.', 'error');
+        });
 }
 
 function loadProgress() {
-    // Load data from localStorage
-    const saved = localStorage.getItem('cloudMigrationData');
-    const savedUsage = localStorage.getItem('usage');
-    
-    if (saved) {
-        try {
-            const data = JSON.parse(saved);
-            if (data.assessment) appState.assessment = { ...appState.assessment, ...data.assessment };
-            if (data.planning) appState.planning = { ...appState.planning, ...data.planning };
-            if (data.cost) appState.cost = { ...appState.cost, ...data.cost };
-            if (data.checklist) appState.checklist = { ...appState.checklist, ...data.checklist };
-        } catch (e) {
-            console.error('Error loading progress:', e);
-        }
-    }
-    
-    if (savedUsage) {
-        try {
-            const usage = JSON.parse(savedUsage);
-            appState.usage = { ...appState.usage, ...usage };
-            // Handle legacy field name
-            if (usage.lastReportAt) {
-                appState.usage.lastReportDate = usage.lastReportAt;
-            }
-        } catch (e) {
-            console.error('Error loading usage:', e);
-        }
-    }
-    
     populateForms();
     updateAssessment();
     updateMigrationPlan();
@@ -1255,96 +1188,89 @@ document.getElementById('exportBtn').addEventListener('click', () => generateRep
 
 // Initialize
 window.addEventListener('DOMContentLoaded', () => {
-    console.log('Page loaded, checking authentication...');
-    console.log('localStorage user:', localStorage.getItem('user'));
-    console.log('localStorage subscription:', localStorage.getItem('subscription'));
-    
-    // Check authentication (localStorage-based)
-    const isAuthenticated = checkAuth();
-    console.log('Authentication result:', isAuthenticated);
-    
-    if (!isAuthenticated) {
-        console.log('Not authenticated, redirecting to landing page');
-        return;
-    }
-    
-    console.log('User authenticated:', appState.user);
-    
-    // Initialize user UI
-    if (appState.user) {
-        document.getElementById('userName').textContent = appState.user.name || 'User';
-        document.getElementById('userEmail').textContent = appState.user.email || 'user@example.com';
-        
-        // Populate account form
-        if (document.getElementById('profileName')) {
-            document.getElementById('profileName').value = appState.user.name || '';
-            document.getElementById('profileEmail').value = appState.user.email || '';
-            document.getElementById('profileCompany').value = appState.user.company || '';
-        }
-    }
-    
-    // Initialize subscription UI
-    updateSubscriptionUI();
-    
-    // Load progress
-    loadProgress();
-    
-    // Reset monthly report count if new month
-    const lastReportDate = appState.usage.lastReportDate;
-    if (lastReportDate) {
-        const lastDate = new Date(lastReportDate);
-        const now = new Date();
-        if (lastDate.getMonth() !== now.getMonth() || lastDate.getFullYear() !== now.getFullYear()) {
-            appState.usage.reportsThisMonth = 0;
-        }
-    }
-    
-    updateDashboard();
-    updateCostChart();
-    updateUsageUI();
-    
-    // Initialize all features
-    initializeTCO();
-    
-    // Initialize checklist if there are saved tasks
-    if (appState.checklist && appState.checklist.tasks && appState.checklist.tasks.length > 0) {
-        renderChecklist();
-    }
+    (async () => {
+        const ok = await requireSession();
+        if (!ok) return;
 
-    // If user returned from Stripe checkout, sync subscription immediately
-    handlePostCheckoutReturn().catch(() => {});
-    
-    // Load and render checklist
-    if (appState.checklist.tasks && appState.checklist.tasks.length > 0) {
-        renderChecklist();
-    }
-    
-    // Set default dates
-    const today = new Date();
-    const nextMonth = new Date(today);
-    nextMonth.setMonth(nextMonth.getMonth() + 1);
-    
-    if (document.getElementById('startDate')) {
-        document.getElementById('startDate').value = today.toISOString().split('T')[0];
-        document.getElementById('endDate').value = nextMonth.toISOString().split('T')[0];
-    }
-    
-    // Event listeners
-    if (document.getElementById('userMenuBtn')) {
-        document.getElementById('userMenuBtn').addEventListener('click', toggleUserMenu);
-    }
-    
-    if (document.getElementById('profileForm')) {
-        document.getElementById('profileForm').addEventListener('submit', (e) => {
-            e.preventDefault();
-            appState.user.name = document.getElementById('profileName').value;
-            appState.user.email = document.getElementById('profileEmail').value;
-            appState.user.company = document.getElementById('profileCompany').value;
-            localStorage.setItem('user', JSON.stringify(appState.user));
-            updateSubscriptionUI();
-            showToast('Profile updated successfully!');
-        });
-    }
+        // Initialize user UI (after /api/me)
+        if (appState.user) {
+            document.getElementById('userName').textContent = appState.user.name || 'User';
+            document.getElementById('userEmail').textContent = appState.user.email || 'user@example.com';
+
+            // Populate account form
+            if (document.getElementById('profileName')) {
+                document.getElementById('profileName').value = appState.user.name || '';
+                document.getElementById('profileEmail').value = appState.user.email || '';
+                document.getElementById('profileCompany').value = appState.user.company || '';
+            }
+        }
+
+        updateSubscriptionUI();
+        loadProgress();
+
+        // Reset monthly report count if new month (client-side convenience; server is canonical)
+        const lastReportAt = appState.usage.lastReportAt;
+        if (lastReportAt) {
+            const lastDate = new Date(lastReportAt);
+            const now = new Date();
+            if (lastDate.getMonth() !== now.getMonth() || lastDate.getFullYear() !== now.getFullYear()) {
+                appState.usage.reportsThisMonth = 0;
+            }
+        }
+
+        updateDashboard();
+        updateCostChart();
+        updateUsageUI();
+        initializeTCO();
+
+        if (appState.checklist?.tasks?.length) renderChecklist();
+
+        // If user returned from Stripe checkout, sync subscription immediately
+        handlePostCheckoutReturn().catch(() => {});
+
+        // Set default dates if not already set
+        const today = new Date();
+        const nextMonth = new Date(today);
+        nextMonth.setMonth(nextMonth.getMonth() + 1);
+        if (document.getElementById('startDate')) {
+            if (!document.getElementById('startDate').value) {
+                document.getElementById('startDate').value = today.toISOString().split('T')[0];
+            }
+            if (!document.getElementById('endDate').value) {
+                document.getElementById('endDate').value = nextMonth.toISOString().split('T')[0];
+            }
+        }
+
+        // Event listeners
+        if (document.getElementById('userMenuBtn')) {
+            document.getElementById('userMenuBtn').addEventListener('click', toggleUserMenu);
+        }
+
+        if (document.getElementById('profileForm')) {
+            document.getElementById('profileForm').addEventListener('submit', async (e) => {
+                e.preventDefault();
+                const name = document.getElementById('profileName').value.trim();
+                const companyName = document.getElementById('profileCompany').value.trim();
+
+                try {
+                    const updated = await api('/api/me', {
+                        method: 'PUT',
+                        body: JSON.stringify({ name, companyName })
+                    });
+                    if (updated?.user) {
+                        appState.user = { ...appState.user, ...updated.user, company: updated.user.companyName };
+                        document.getElementById('userName').textContent = appState.user.name || 'User';
+                        showToast('Profile updated successfully!');
+                    } else {
+                        showToast('Profile updated.', 'success');
+                    }
+                } catch (err) {
+                    console.error('Profile update error:', err);
+                    showToast('Profile update failed. Please try again.', 'error');
+                }
+            });
+        }
+    })();
 });
 
 // Migration Checklist Functions

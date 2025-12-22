@@ -262,13 +262,13 @@
             const userData = {
                 name: form.name.value.trim(),
                 email: form.email.value.trim().toLowerCase(), // Store email in lowercase for consistency
-                company: form.company.value.trim(),
+                companyName: form.company.value.trim(),
                 password: form.password.value,
                 plan: form.plan.value
             };
 
             // Validation
-            if (!userData.name || !userData.email || !userData.company || !userData.password) {
+            if (!userData.name || !userData.email || !userData.companyName || !userData.password) {
                 showError('Please fill in all fields');
                 return;
             }
@@ -292,7 +292,6 @@
             submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Creating Account...';
 
             try {
-                // Try backend API first
                 const response = await fetch('/api/auth/signup', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -301,47 +300,24 @@
                 });
 
                 if (response.ok) {
-                    const data = await response.json();
-                    // Save to localStorage as backup
-                    localStorage.setItem('user', JSON.stringify(data.user));
-                    localStorage.setItem('subscription', JSON.stringify(data.subscription));
                     showSuccess('Account created successfully! Redirecting...');
                     setTimeout(() => {
                         window.location.href = 'index.html';
                     }, 1000);
                 } else {
-                    const error = await response.json().catch(() => ({ error: 'Signup failed' }));
-                    
-                    // Fallback to localStorage if backend fails
-                    delete userData.password; // Don't store password
-                    localStorage.setItem('user', JSON.stringify(userData));
-                    localStorage.setItem('subscription', JSON.stringify({
-                        plan: userData.plan,
-                        status: 'active',
-                        startDate: new Date().toISOString(),
-                        trialEnds: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString()
-                    }));
-                    showSuccess('Account created! Redirecting...');
-                    setTimeout(() => {
-                        window.location.href = 'index.html';
-                    }, 1000);
+                    const err = await response.json().catch(() => ({ error: 'signup_failed' }));
+                    let msg = 'Signup failed. Please try again.';
+                    if (err?.error === 'email_in_use') msg = 'That email is already in use. Please sign in instead.';
+                    if (err?.error === 'invalid_request') msg = 'Please check your inputs and try again.';
+                    showError(msg);
+                    submitBtn.disabled = false;
+                    submitBtn.innerHTML = '<i class="fas fa-user-plus"></i> Create Account';
                 }
             } catch (error) {
                 console.error('Signup error:', error);
-                
-                // Fallback to localStorage
-                delete userData.password;
-                localStorage.setItem('user', JSON.stringify(userData));
-                localStorage.setItem('subscription', JSON.stringify({
-                    plan: userData.plan,
-                    status: 'active',
-                    startDate: new Date().toISOString(),
-                    trialEnds: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString()
-                }));
-                showSuccess('Account created! Redirecting...');
-                setTimeout(() => {
-                    window.location.href = 'index.html';
-                }, 1000);
+                showError('Unable to reach the server. Please try again in a moment.');
+                submitBtn.disabled = false;
+                submitBtn.innerHTML = '<i class="fas fa-user-plus"></i> Create Account';
             }
         }
     </script>
